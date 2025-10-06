@@ -189,13 +189,13 @@ docker-compose up --build
 **Veniamin Gabarov** - [@gabarovveniamin](https://github.com/gabarovveniamin)
 
 - GitHub: [@gabarovveniamin](https://github.com/gabarovveniamin)
-- Email: oneplacejob@gmail.com
+- Email: vena.gabarov@gmail.com
 
 ## 📞 Поддержка
 
 Если у вас есть вопросы или предложения:
 - Создайте [Issue](https://github.com/gabarovveniamin/oneplace/issues)
-- Напишите на email: oneplacejob@gmail.com
+- Напишите на email: vena.gabarov@gmail.com
 
 ---
 
