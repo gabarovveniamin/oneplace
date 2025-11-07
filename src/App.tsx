@@ -10,12 +10,9 @@ import { Profile, PostJob } from './features/profile/components';
 import { Registration, ExtendedResumeBuilder } from './features/auth/components';
 import { Job, SearchFilters } from './shared/types/job';
 import { useJobs } from './features/jobs/hooks/useJobs';
-import { ApiTest } from './components/ApiTest';
-
-// Mock данные перенесены в useJobs хук
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'post-job' | 'api-test'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'post-job'>('home');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -167,7 +164,7 @@ export default function App() {
       <main className="flex-1">
         {currentView === 'home' && (
           <>
-            <Hero onApiTest={() => setCurrentView('api-test')} />
+            <Hero />
             <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
             <JobsList 
               jobs={filteredJobs} 
@@ -202,10 +199,6 @@ export default function App() {
 
         {currentView === 'post-job' && (
           <PostJob onBack={handleBackToHome} />
-        )}
-
-        {currentView === 'api-test' && (
-          <ApiTest onBack={handleBackToHome} />
         )}
       </main>
       

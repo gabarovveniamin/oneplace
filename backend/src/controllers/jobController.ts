@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { body, query } from 'express-validator';
-import Job, { IJob } from '../models/Job';
+import { JobModel, Job, JobFilters } from '../models/Job';
+import { JobModelMethods } from '../models/JobMethods';
 import { createError } from '../middleware/errorHandler';
 
 // Validation rules
@@ -96,23 +97,16 @@ export const getJobs = async (req: Request, res: Response, next: NextFunction): 
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    const skip = (page - 1) * limit;
 
     // Build filter object
-    const filter: any = { isActive: true };
+    const filters: JobFilters = { isActive: true };
     
     if (req.query.type && req.query.type !== 'all') {
-      filter.type = req.query.type;
+      filters.type = req.query.type as string;
     }
 
-    // Execute query
-    const jobs = await Job.find(filter)
-      .populate('postedBy', 'firstName lastName email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Job.countDocuments(filter);
+    // Execute query using PostgreSQL model
+    const { jobs, total } = await JobModel.findMany(filters, { page, limit });
     const totalPages = Math.ceil(total / limit);
 
     res.json({
@@ -133,8 +127,7 @@ export const getJobs = async (req: Request, res: Response, next: NextFunction): 
 // Get job by ID
 export const getJobById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const job = await Job.findById(req.params.id)
-      .populate('postedBy', 'firstName lastName email');
+    const job = await JobModel.findById(req.params.id);
 
     if (!job) {
       res.status(404).json({
@@ -145,8 +138,8 @@ export const getJobById = async (req: Request, res: Response, next: NextFunction
     }
 
     // Increment views
+    await JobModelMethods.incrementViews(req.params.id);
     job.views += 1;
-    await job.save();
 
     res.json({
       success: true,
@@ -162,14 +155,13 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
-    const skip = (page - 1) * limit;
 
     // Build filter object
-    const filter: any = { isActive: true };
+    const filters: JobFilters = { isActive: true };
 
     // Text search
     if (req.query.keyword) {
-      filter.$text = { $search: req.query.keyword as string };
+      filters.keyword = req.query.keyword as string;
     }
 
     // Exact matches
@@ -180,33 +172,24 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
 
     exactMatchFields.forEach(field => {
       if (req.query[field]) {
-        filter[field] = req.query[field];
+        (filters as any)[field] = req.query[field] as string;
       }
     });
 
     // Range filters
-    if (req.query.salaryFrom || req.query.salaryTo) {
-      filter.salaryFrom = {};
-      if (req.query.salaryFrom) {
-        filter.salaryFrom.$gte = parseInt(req.query.salaryFrom as string);
-      }
-      if (req.query.salaryTo) {
-        filter.salaryTo = { $lte: parseInt(req.query.salaryTo as string) };
-      }
+    if (req.query.salaryFrom) {
+      filters.salaryFrom = parseInt(req.query.salaryFrom as string);
+    }
+    if (req.query.salaryTo) {
+      filters.salaryTo = parseInt(req.query.salaryTo as string);
     }
 
     if (req.query.workHours) {
-      filter.workHours = parseInt(req.query.workHours as string);
+      filters.workHours = parseInt(req.query.workHours as string);
     }
 
-    // Execute query
-    const jobs = await Job.find(filter)
-      .populate('postedBy', 'firstName lastName email')
-      .sort(req.query.keyword ? { score: { $meta: 'textScore' } } : { createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Job.countDocuments(filter);
+    // Execute query using PostgreSQL model
+    const { jobs, total } = await JobModel.findMany(filters, { page, limit });
     const totalPages = Math.ceil(total / limit);
 
     res.json({
@@ -228,15 +211,10 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
 export const createJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user;
-    const jobData = {
+    const job = await JobModel.create({
       ...req.body,
-      postedBy: user._id,
-    };
-
-    const job = new Job(jobData);
-    await job.save();
-
-    await job.populate('postedBy', 'firstName lastName email');
+      postedBy: user.id, // Use UUID string instead of MongoDB _id
+    });
 
     res.status(201).json({
       success: true,
@@ -252,7 +230,7 @@ export const createJob = async (req: Request, res: Response, next: NextFunction)
 export const updateJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user;
-    const job = await Job.findById(req.params.id);
+    const job = await JobModel.findById(req.params.id);
 
     if (!job) {
       res.status(404).json({
@@ -263,7 +241,7 @@ export const updateJob = async (req: Request, res: Response, next: NextFunction)
     }
 
     // Check if user owns the job or is admin
-    if (job.postedBy.toString() !== user._id.toString() && user.role !== 'admin') {
+    if (job.postedBy !== user.id && user.role !== 'admin') {
       res.status(403).json({
         success: false,
         message: 'Not authorized to update this job',
@@ -271,11 +249,15 @@ export const updateJob = async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const updatedJob = await Job.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('postedBy', 'firstName lastName email');
+    const updatedJob = await JobModelMethods.update(req.params.id, req.body);
+
+    if (!updatedJob) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update job',
+      });
+      return;
+    }
 
     res.json({
       success: true,
@@ -291,7 +273,7 @@ export const updateJob = async (req: Request, res: Response, next: NextFunction)
 export const deleteJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user;
-    const job = await Job.findById(req.params.id);
+    const job = await JobModel.findById(req.params.id);
 
     if (!job) {
       res.status(404).json({
@@ -302,7 +284,7 @@ export const deleteJob = async (req: Request, res: Response, next: NextFunction)
     }
 
     // Check if user owns the job or is admin
-    if (job.postedBy.toString() !== user._id.toString() && user.role !== 'admin') {
+    if (job.postedBy !== user.id && user.role !== 'admin') {
       res.status(403).json({
         success: false,
         message: 'Not authorized to delete this job',
@@ -310,7 +292,15 @@ export const deleteJob = async (req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    await Job.findByIdAndDelete(req.params.id);
+    const deleted = await JobModelMethods.delete(req.params.id);
+
+    if (!deleted) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete job',
+      });
+      return;
+    }
 
     res.json({
       success: true,
@@ -326,10 +316,7 @@ export const getPopularJobs = async (req: Request, res: Response, next: NextFunc
   try {
     const limit = parseInt(req.query.limit as string) || 10;
 
-    const jobs = await Job.find({ isActive: true })
-      .populate('postedBy', 'firstName lastName email')
-      .sort({ views: -1, createdAt: -1 })
-      .limit(limit);
+    const jobs = await JobModelMethods.getPopular(limit);
 
     res.json({
       success: true,
@@ -345,10 +332,7 @@ export const getRecentJobs = async (req: Request, res: Response, next: NextFunct
   try {
     const limit = parseInt(req.query.limit as string) || 10;
 
-    const jobs = await Job.find({ isActive: true })
-      .populate('postedBy', 'firstName lastName email')
-      .sort({ createdAt: -1 })
-      .limit(limit);
+    const jobs = await JobModelMethods.getRecent(limit);
 
     res.json({
       success: true,
@@ -362,31 +346,11 @@ export const getRecentJobs = async (req: Request, res: Response, next: NextFunct
 // Get jobs statistics
 export const getJobsStats = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const total = await Job.countDocuments({ isActive: true });
-    
-    const byType = await Job.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$type', count: { $sum: 1 } } },
-    ]);
-
-    const byIndustry = await Job.aggregate([
-      { $match: { isActive: true, industry: { $exists: true, $ne: null } } },
-      { $group: { _id: '$industry', count: { $sum: 1 } } },
-    ]);
-
-    const byRegion = await Job.aggregate([
-      { $match: { isActive: true, region: { $exists: true, $ne: null } } },
-      { $group: { _id: '$region', count: { $sum: 1 } } },
-    ]);
+    const stats = await JobModelMethods.getStats();
 
     res.json({
       success: true,
-      data: {
-        total,
-        byType: byType.reduce((acc, item) => ({ ...acc, [item._id]: item.count }), {}),
-        byIndustry: byIndustry.reduce((acc, item) => ({ ...acc, [item._id]: item.count }), {}),
-        byRegion: byRegion.reduce((acc, item) => ({ ...acc, [item._id]: item.count }), {}),
-      },
+      data: stats,
     });
   } catch (error) {
     next(error);
@@ -397,10 +361,10 @@ export const getJobsStats = async (req: Request, res: Response, next: NextFuncti
 export const getUserJobs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user;
-    const userId = req.params.userId || user._id;
+    const userId = req.params.userId || user.id;
 
     // Check if user is requesting their own jobs or is admin
-    if (userId !== user._id.toString() && user.role !== 'admin') {
+    if (userId !== user.id && user.role !== 'admin') {
       res.status(403).json({
         success: false,
         message: 'Not authorized to view these jobs',
@@ -408,9 +372,7 @@ export const getUserJobs = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const jobs = await Job.find({ postedBy: userId })
-      .populate('postedBy', 'firstName lastName email')
-      .sort({ createdAt: -1 });
+    const jobs = await JobModelMethods.findByUserId(userId);
 
     res.json({
       success: true,
