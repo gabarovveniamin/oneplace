@@ -1,11 +1,9 @@
 import { Button } from "./button";
-import { ArrowRight, TestTube } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
-interface HeroProps {
-  onApiTest?: () => void;
-}
+interface HeroProps {}
 
-export function Hero({ onApiTest }: HeroProps) {
+export function Hero() {
   return (
     <section className="bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950 dark:to-green-950 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -27,18 +25,6 @@ export function Hero({ onApiTest }: HeroProps) {
             Начать поиск
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
-          
-          {onApiTest && (
-            <Button 
-              size="lg" 
-              variant="outline"
-              onClick={onApiTest}
-              className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
-            >
-              <TestTube className="mr-2 h-4 w-4" />
-              Тест API
-            </Button>
-          )}
         </div>
       </div>
     </section>

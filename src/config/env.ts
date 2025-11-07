@@ -1,7 +1,7 @@
 // Конфигурация приложения
 export const config = {
   api: {
-    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3003/api',
+    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3002/api',
     timeout: 10000,
   },
   app: {

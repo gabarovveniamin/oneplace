@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from "../../../shared/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/components/card";
 import { Input } from "../../../shared/ui/components/input";
 import { Label } from "../../../shared/ui/components/label";
-import { ArrowLeft, User, Mail, Lock } from "lucide-react";
+import { ArrowLeft, User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
+import { authApiService } from '../../../core/api/auth';
+import { Alert, AlertDescription } from '../../../shared/ui/components/alert';
 
 interface RegistrationProps {
   onBack: () => void;
@@ -12,6 +14,8 @@ interface RegistrationProps {
 
 export function Registration({ onBack, onRegistrationComplete }: RegistrationProps) {
   const [step, setStep] = useState<'register' | 'resume-choice'>('register');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '', 
@@ -20,16 +24,99 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
     confirmPassword: ''
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    // Очищаем ошибку для поля при изменении
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+    setError(null);
   };
 
-  const handleRegistration = () => {
-    // Здесь была бы логика регистрации
-    setStep('resume-choice');
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'Имя обязательно для заполнения';
+    }
+
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Фамилия обязательна для заполнения';
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email обязателен для заполнения';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Некорректный формат email';
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Пароль обязателен для заполнения';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Пароль должен содержать минимум 6 символов';
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Подтверждение пароля обязательно';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Пароли не совпадают';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await authApiService.register({
+        email: formData.email.trim(),
+        password: formData.password,
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        role: 'user'
+      });
+
+      console.log('✅ Регистрация успешна:', response);
+      
+      // Переходим к выбору типа резюме
+      setStep('resume-choice');
+    } catch (err: any) {
+      console.error('❌ Ошибка регистрации:', err);
+      
+      // Обрабатываем ошибки валидации с бэкенда
+      if (err?.details?.errors) {
+        const backendErrors: Record<string, string> = {};
+        err.details.errors.forEach((error: any) => {
+          const field = error.param || error.field;
+          if (field) {
+            backendErrors[field] = error.msg || error.message;
+          }
+        });
+        setErrors(backendErrors);
+      } else {
+        setError(err?.message || 'Произошла ошибка при регистрации. Попробуйте позже.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResumeChoice = (type: 'basic' | 'extended') => {
@@ -46,7 +133,7 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
               Добро пожаловать в <span className="bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">OnePlace</span>!
             </CardTitle>
             <p className="text-gray-600 dark:text-white text-lg">
-              Теперь давайте создадим ваше резюме
+              Регистрация успешна! Теперь давайте создадим ваше резюме
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -119,82 +206,115 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
           </p>
         </CardHeader>
         <CardContent>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleRegistration(); }}>
+          <form className="space-y-4" onSubmit={handleRegistration}>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <Label htmlFor="firstName">Имя</Label>
+                <Label htmlFor="firstName">Имя *</Label>
                 <Input
                   id="firstName"
                   type="text"
                   placeholder="Ваше имя"
                   value={formData.firstName}
                   onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  className={errors.firstName ? 'border-red-500' : ''}
+                  disabled={loading}
                   required
                 />
+                {errors.firstName && (
+                  <p className="text-sm text-red-500 mt-1">{errors.firstName}</p>
+                )}
               </div>
               <div>
-                <Label htmlFor="lastName">Фамилия</Label>
+                <Label htmlFor="lastName">Фамилия *</Label>
                 <Input
                   id="lastName"
                   type="text"
                   placeholder="Ваша фамилия"
                   value={formData.lastName}
                   onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  className={errors.lastName ? 'border-red-500' : ''}
+                  disabled={loading}
                   required
                 />
+                {errors.lastName && (
+                  <p className="text-sm text-red-500 mt-1">{errors.lastName}</p>
+                )}
               </div>
             </div>
 
             <div>
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email *</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="example@email.com"
-                  className="pl-10"
+                  className={`pl-10 ${errors.email ? 'border-red-500' : ''}`}
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
+                  disabled={loading}
                   required
                 />
               </div>
+              {errors.email && (
+                <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+              )}
             </div>
 
             <div>
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">Пароль *</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   id="password"
                   type="password"
                   placeholder="Минимум 6 символов"
-                  className="pl-10"
+                  className={`pl-10 ${errors.password ? 'border-red-500' : ''}`}
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
+                  disabled={loading}
                   required
                 />
               </div>
+              {errors.password && (
+                <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+              )}
             </div>
 
             <div>
-              <Label htmlFor="confirmPassword">Подтвердите пароль</Label>
+              <Label htmlFor="confirmPassword">Подтвердите пароль *</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   id="confirmPassword"
                   type="password"
                   placeholder="Повторите пароль"
-                  className="pl-10"
+                  className={`pl-10 ${errors.confirmPassword ? 'border-red-500' : ''}`}
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                  disabled={loading}
                   required
                 />
               </div>
+              {errors.confirmPassword && (
+                <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>
+              )}
             </div>
 
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-              Зарегистрироваться
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700" 
+              disabled={loading}
+            >
+              {loading ? 'Регистрация...' : 'Зарегистрироваться'}
             </Button>
 
             <div className="text-center space-y-2">
@@ -204,7 +324,13 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
                   Войти
                 </button>
               </p>
-              <Button variant="ghost" onClick={onBack} className="text-gray-600 dark:text-gray-300">
+              <Button 
+                type="button"
+                variant="ghost" 
+                onClick={onBack} 
+                className="text-gray-600 dark:text-gray-300"
+                disabled={loading}
+              >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 На главную
               </Button>
