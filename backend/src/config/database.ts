@@ -1,59 +1,98 @@
-import { Pool, PoolClient } from 'pg';
+import path from 'path';
 import { config } from './config';
 
-// Создаем пул соединений
-const pool = new Pool({
-  host: config.postgres.host,
-  port: config.postgres.port,
-  database: config.postgres.database,
-  user: config.postgres.user,
-  password: config.postgres.password,
-  ssl: config.postgres.ssl,
-  max: 20, // максимальное количество соединений в пуле
-  idleTimeoutMillis: 30000, // время ожидания перед закрытием неактивного соединения
-  connectionTimeoutMillis: 2000, // время ожидания подключения
+// better-sqlite3 требует CommonJS импорт
+const BetterSqlite3 = require('better-sqlite3');
+
+// Путь к файлу базы данных
+const dbPath = path.join(__dirname, '../../database.sqlite');
+
+// Создаем подключение к SQLite
+const db = new BetterSqlite3(dbPath, {
+  verbose: config.nodeEnv === 'development' ? console.log : undefined,
 });
 
-// Функция для выполнения запросов
+// Включаем поддержку внешних ключей
+db.pragma('foreign_keys = ON');
+
+// Оптимизация производительности
+db.pragma('journal_mode = WAL'); // Write-Ahead Logging для лучшей производительности
+db.pragma('synchronous = NORMAL'); // Баланс между скоростью и безопасностью
+db.pragma('cache_size = -64000'); // 64MB кэша
+db.pragma('temp_store = MEMORY'); // Временные таблицы в памяти
+
+// Функция для выполнения запросов (совместимость с PostgreSQL API)
 export const query = async (text: string, params?: any[]): Promise<any> => {
   const start = Date.now();
   try {
-    const res = await pool.query(text, params);
+    // Преобразуем PostgreSQL параметры ($1, $2) в SQLite (?, ?)
+    const sqliteQuery = text.replace(/\$\d+/g, '?');
+
+    // Определяем тип запроса
+    const isSelect = sqliteQuery.trim().toUpperCase().startsWith('SELECT');
+    const isReturning = sqliteQuery.toUpperCase().includes('RETURNING');
+
+    let result;
+
+    if (isSelect || isReturning) {
+      // Для SELECT и INSERT...RETURNING используем all()
+      const stmt = db.prepare(sqliteQuery);
+      const rows = params && params.length > 0 ? stmt.all(...params) : stmt.all();
+      result = { rows, rowCount: rows.length };
+    } else {
+      // Для INSERT, UPDATE, DELETE используем run()
+      const stmt = db.prepare(sqliteQuery);
+      const info = params && params.length > 0 ? stmt.run(...params) : stmt.run();
+      result = { rows: [], rowCount: info.changes };
+    }
+
     const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
-    return res;
+    if (config.nodeEnv === 'development') {
+      console.log('Executed query', { text: sqliteQuery.substring(0, 100), duration, rows: result.rowCount });
+    }
+
+    return result;
   } catch (error) {
     console.error('Database query error:', error);
+    console.error('Query:', text);
+    console.error('Params:', params);
     throw error;
   }
 };
 
-// Функция для получения клиента из пула
-export const getClient = async (): Promise<PoolClient> => {
-  return await pool.connect();
+// Функция для получения клиента (для совместимости с PostgreSQL API)
+export const getClient = async () => {
+  return {
+    query,
+    release: () => { }, // SQLite не требует освобождения соединений
+  };
 };
 
 // Функция для тестирования подключения
 export const testConnection = async (): Promise<boolean> => {
   try {
-    const result = await query('SELECT NOW()');
-    console.log('Database connected successfully:', result.rows[0]);
+    const result = await query("SELECT datetime('now') as now");
+    console.log('✅ Database connected successfully:', result.rows[0]);
     return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error('❌ Database connection failed:', error);
     return false;
   }
 };
 
-// Функция для закрытия пула соединений
+// Функция для закрытия базы данных
 export const closePool = async (): Promise<void> => {
-  await pool.end();
+  db.close();
 };
 
-// Обработка ошибок пула
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+// Обработка закрытия приложения
+process.on('exit', () => {
+  db.close();
 });
 
-export default pool;
+process.on('SIGINT', () => {
+  db.close();
+  process.exit(0);
+});
+
+export default db;

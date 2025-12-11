@@ -63,7 +63,7 @@ export function useJobs() {
       limit: pagination.limit,
       ...(activeFilter !== 'all' && { type: activeFilter })
     };
-    
+
     const result = await fetchJobs(params);
     if (result) {
       setJobs(result.data);
@@ -116,7 +116,7 @@ export function useJobs() {
     const result = await updateJob(jobData);
     if (result) {
       // Обновляем вакансию в списке
-      setJobs(prev => prev.map(job => 
+      setJobs(prev => prev.map(job =>
         job.id === jobData.id ? { ...job, ...result } : job
       ));
       return result as Job;
@@ -142,23 +142,65 @@ export function useJobs() {
   const loading = jobsLoading || searchLoading;
   const error = jobsError || searchError;
 
+  // Динамическое обновление (Polling)
+  const silentReload = useCallback(async () => {
+    // Не обновляем если идет активная загрузка
+    if (loading) return;
+
+    try {
+      if (Object.keys(searchFilters).length > 0) {
+        // Режим поиска
+        const params = {
+          ...searchFilters,
+          page: pagination.page,
+          limit: pagination.limit,
+          ...(activeFilter !== 'all' && { type: activeFilter })
+        };
+        const result = await jobsApiService.searchJobs(params);
+        if (result) {
+          setJobs(result.data);
+          setPagination(result.pagination);
+        }
+      } else {
+        // Обычный список
+        const params = {
+          page: pagination.page,
+          limit: pagination.limit,
+          ...(activeFilter !== 'all' && { type: activeFilter })
+        };
+        const result = await jobsApiService.getJobs(params);
+        if (result) {
+          setJobs(result.data);
+          setPagination(result.pagination);
+        }
+      }
+    } catch (err) {
+      console.error('Silent reload failed', err);
+    }
+  }, [activeFilter, pagination.page, pagination.limit, searchFilters, loading]);
+
+  useEffect(() => {
+    const interval = setInterval(silentReload, 10000); // 10 sec polling
+    return () => clearInterval(interval);
+  }, [silentReload]);
+
   return {
     // Данные
     jobs,
     pagination,
-    
+
     // Состояние
     loading,
     error,
     createLoading,
     updateLoading,
     deleteLoading,
-    
+
     // Фильтры
     activeFilter,
     setActiveFilter,
     searchFilters,
-    
+
     // Действия
     handleAdvancedSearch,
     handleClearAdvancedSearch,
@@ -167,7 +209,7 @@ export function useJobs() {
     handleDeleteJob,
     handlePageChange,
     loadJobs,
-    
+
     // API ошибки
     createError,
     updateError,

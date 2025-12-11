@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
 export interface User {
   id: string;
@@ -33,24 +34,37 @@ export interface UpdateUserData {
   avatar?: string;
 }
 
+// Генерация UUID для SQLite
+const generateId = (): string => {
+  return randomBytes(16).toString('hex');
+};
+
 export class UserModel {
   // Создание пользователя
   static async create(userData: CreateUserData): Promise<User> {
     const hashedPassword = await bcrypt.hash(userData.password, 12);
-    
-    const result = await query(
-      `INSERT INTO users (email, password, first_name, last_name, phone, role)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, email, first_name, last_name, phone, avatar, role, 
-                 is_email_verified, is_active, last_login, created_at, updated_at`,
+    const id = generateId();
+
+    await query(
+      `INSERT INTO users (id, email, password, first_name, last_name, phone, role)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
+        id,
         userData.email,
         hashedPassword,
         userData.firstName,
         userData.lastName,
-        userData.phone,
+        userData.phone || null,
         userData.role || 'user'
       ]
+    );
+
+    // Получаем созданного пользователя
+    const result = await query(
+      `SELECT id, email, first_name, last_name, phone, avatar, role, 
+              is_email_verified, is_active, last_login, created_at, updated_at
+       FROM users WHERE id = ?`,
+      [id]
     );
 
     return this.mapRowToUser(result.rows[0]);
@@ -63,7 +77,7 @@ export class UserModel {
       `SELECT id, ${passwordField}email, first_name, last_name, phone, avatar, role,
               is_email_verified, is_active, last_login, created_at, updated_at
        FROM users 
-       WHERE email = $1`,
+       WHERE email = ?`,
       [email]
     );
 
@@ -80,7 +94,7 @@ export class UserModel {
       `SELECT id, email, first_name, last_name, phone, avatar, role,
               is_email_verified, is_active, last_login, created_at, updated_at
        FROM users 
-       WHERE id = $1`,
+       WHERE id = ?`,
       [id]
     );
 
@@ -93,54 +107,62 @@ export class UserModel {
 
   // Обновление пользователя
   static async update(id: string, userData: UpdateUserData): Promise<User | null> {
-    const fields = [];
-    const values = [];
-    let paramCount = 1;
+    console.log('UserModel.update called with:', { id, userData });
+
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (userData.firstName !== undefined) {
-      fields.push(`first_name = $${paramCount++}`);
+      fields.push('first_name = ?');
       values.push(userData.firstName);
     }
     if (userData.lastName !== undefined) {
-      fields.push(`last_name = $${paramCount++}`);
+      fields.push('last_name = ?');
       values.push(userData.lastName);
     }
     if (userData.phone !== undefined) {
-      fields.push(`phone = $${paramCount++}`);
+      fields.push('phone = ?');
       values.push(userData.phone);
     }
     if (userData.avatar !== undefined) {
-      fields.push(`avatar = $${paramCount++}`);
+      fields.push('avatar = ?');
       values.push(userData.avatar);
     }
 
+    // Always update updated_at
+    fields.push("updated_at = datetime('now')");
+
     if (fields.length === 0) {
+      console.log('No fields to update, returning existing user');
       return this.findById(id);
     }
 
     values.push(id);
-    const result = await query(
-      `UPDATE users 
+    const sql = `UPDATE users 
        SET ${fields.join(', ')}
-       WHERE id = $${paramCount}
-       RETURNING id, email, first_name, last_name, phone, avatar, role,
-                 is_email_verified, is_active, last_login, created_at, updated_at`,
-      values
-    );
+       WHERE id = ?`;
 
-    if (result.rows.length === 0) {
-      return null;
+    console.log('Executing SQL:', sql);
+    console.log('With values:', values);
+
+    const result = await query(sql, values);
+    console.log('Update result rowCount:', result.rowCount);
+
+    if (result.rowCount === 0) {
+      console.error('ERROR: No rows updated! User ID might be wrong:', id);
     }
 
-    return this.mapRowToUser(result.rows[0]);
+    const updatedUser = await this.findById(id);
+    console.log('Updated user:', updatedUser);
+    return updatedUser;
   }
 
   // Обновление пароля
   static async updatePassword(id: string, newPassword: string): Promise<boolean> {
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    
+
     const result = await query(
-      'UPDATE users SET password = $1 WHERE id = $2',
+      'UPDATE users SET password = ? WHERE id = ?',
       [hashedPassword, id]
     );
 
@@ -150,7 +172,7 @@ export class UserModel {
   // Обновление времени последнего входа
   static async updateLastLogin(id: string): Promise<void> {
     await query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      "UPDATE users SET last_login = datetime('now') WHERE id = ?",
       [id]
     );
   }
@@ -163,11 +185,32 @@ export class UserModel {
   // Проверка существования пользователя по email
   static async existsByEmail(email: string): Promise<boolean> {
     const result = await query(
-      'SELECT 1 FROM users WHERE email = $1',
+      'SELECT 1 FROM users WHERE email = ?',
       [email]
     );
 
     return result.rows.length > 0;
+  }
+
+  // Получить всех пользователей (для админки)
+  static async findAll(): Promise<User[]> {
+    const result = await query(
+      `SELECT id, email, first_name, last_name, phone, avatar, role,
+              is_email_verified, is_active, last_login, created_at, updated_at
+       FROM users
+       ORDER BY created_at DESC`
+    );
+
+    return result.rows.map(this.mapRowToUser);
+  }
+
+  // Удалить пользователя (для админки)
+  static async delete(id: string): Promise<boolean> {
+    const result = await query(
+      'DELETE FROM users WHERE id = ?',
+      [id]
+    );
+    return result.rowCount > 0;
   }
 
   // Маппинг строки БД в объект User
@@ -181,11 +224,11 @@ export class UserModel {
       phone: row.phone,
       avatar: row.avatar,
       role: row.role,
-      isEmailVerified: row.is_email_verified,
-      isActive: row.is_active,
-      lastLogin: row.last_login,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      isEmailVerified: Boolean(row.is_email_verified),
+      isActive: Boolean(row.is_active),
+      lastLogin: row.last_login ? new Date(row.last_login) : undefined,
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
     };
   }
 }

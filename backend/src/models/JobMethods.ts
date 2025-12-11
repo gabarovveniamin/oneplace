@@ -5,8 +5,7 @@ export class JobModelMethods {
   // Обновление вакансии
   static async update(id: string, jobData: UpdateJobData): Promise<Job | null> {
     const fields = [];
-    const values = [];
-    let paramCount = 1;
+    const values: any[] = [];
 
     const fieldMappings = {
       title: 'title',
@@ -37,8 +36,15 @@ export class JobModelMethods {
       if (value !== undefined) {
         const dbField = fieldMappings[key as keyof typeof fieldMappings];
         if (dbField) {
-          fields.push(`${dbField} = $${paramCount++}`);
-          values.push(value);
+          fields.push(`${dbField} = ?`);
+          // Конвертируем boolean в 0/1 для SQLite
+          if (typeof value === 'boolean') {
+            values.push(value ? 1 : 0);
+          } else if (key === 'tags' && Array.isArray(value)) {
+            values.push(JSON.stringify(value));
+          } else {
+            values.push(value);
+          }
         }
       }
     });
@@ -48,13 +54,15 @@ export class JobModelMethods {
     }
 
     values.push(id);
-    const result = await query(
+    await query(
       `UPDATE jobs 
        SET ${fields.join(', ')}
-       WHERE id = $${paramCount}
-       RETURNING *`,
+       WHERE id = ?`,
       values
     );
+
+    // Получаем обновленную вакансию
+    const result = await query('SELECT * FROM jobs WHERE id = ?', [id]);
 
     if (result.rows.length === 0) {
       return null;
@@ -65,13 +73,13 @@ export class JobModelMethods {
 
   // Удаление вакансии
   static async delete(id: string): Promise<boolean> {
-    const result = await query('DELETE FROM jobs WHERE id = $1', [id]);
+    const result = await query('DELETE FROM jobs WHERE id = ?', [id]);
     return result.rowCount > 0;
   }
 
   // Увеличение счетчика просмотров
   static async incrementViews(id: string): Promise<void> {
-    await query('UPDATE jobs SET views = views + 1 WHERE id = $1', [id]);
+    await query('UPDATE jobs SET views = views + 1 WHERE id = ?', [id]);
   }
 
   // Получение популярных вакансий
@@ -80,9 +88,9 @@ export class JobModelMethods {
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
        FROM jobs j
        LEFT JOIN users u ON j.posted_by = u.id
-       WHERE j.is_active = true
+       WHERE j.is_active = 1
        ORDER BY j.views DESC, j.created_at DESC
-       LIMIT $1`,
+       LIMIT ?`,
       [limit]
     );
 
@@ -95,9 +103,9 @@ export class JobModelMethods {
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
        FROM jobs j
        LEFT JOIN users u ON j.posted_by = u.id
-       WHERE j.is_active = true
+       WHERE j.is_active = 1
        ORDER BY j.created_at DESC
-       LIMIT $1`,
+       LIMIT ?`,
       [limit]
     );
 
@@ -107,18 +115,18 @@ export class JobModelMethods {
   // Получение статистики
   static async getStats(): Promise<any> {
     const [totalResult, byTypeResult, byIndustryResult, byRegionResult] = await Promise.all([
-      query('SELECT COUNT(*) as total FROM jobs WHERE is_active = true'),
-      query('SELECT type, COUNT(*) as count FROM jobs WHERE is_active = true GROUP BY type'),
-      query('SELECT industry, COUNT(*) as count FROM jobs WHERE is_active = true AND industry IS NOT NULL GROUP BY industry'),
-      query('SELECT region, COUNT(*) as count FROM jobs WHERE is_active = true AND region IS NOT NULL GROUP BY region'),
+      query('SELECT COUNT(*) as total FROM jobs WHERE is_active = 1'),
+      query('SELECT type, COUNT(*) as count FROM jobs WHERE is_active = 1 GROUP BY type'),
+      query('SELECT industry, COUNT(*) as count FROM jobs WHERE is_active = 1 AND industry IS NOT NULL GROUP BY industry'),
+      query('SELECT region, COUNT(*) as count FROM jobs WHERE is_active = 1 AND region IS NOT NULL GROUP BY region'),
     ]);
 
-    const byType = byTypeResult.rows.reduce((acc, row) => ({ ...acc, [row.type]: parseInt(row.count) }), {});
-    const byIndustry = byIndustryResult.rows.reduce((acc, row) => ({ ...acc, [row.industry]: parseInt(row.count) }), {});
-    const byRegion = byRegionResult.rows.reduce((acc, row) => ({ ...acc, [row.region]: parseInt(row.count) }), {});
+    const byType = byTypeResult.rows.reduce((acc, row) => ({ ...acc, [row.type]: row.count }), {});
+    const byIndustry = byIndustryResult.rows.reduce((acc, row) => ({ ...acc, [row.industry]: row.count }), {});
+    const byRegion = byRegionResult.rows.reduce((acc, row) => ({ ...acc, [row.region]: row.count }), {});
 
     return {
-      total: parseInt(totalResult.rows[0].total),
+      total: totalResult.rows[0].total,
       byType,
       byIndustry,
       byRegion,
@@ -131,7 +139,7 @@ export class JobModelMethods {
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
        FROM jobs j
        LEFT JOIN users u ON j.posted_by = u.id
-       WHERE j.posted_by = $1
+       WHERE j.posted_by = ?
        ORDER BY j.created_at DESC`,
       [userId]
     );
@@ -141,6 +149,7 @@ export class JobModelMethods {
 
   // Маппинг строки БД в объект Job
   private static mapRowToJob(row: any): Job {
+    const createdDate = new Date(row.created_at);
     return {
       id: row.id,
       title: row.title,
@@ -149,7 +158,7 @@ export class JobModelMethods {
       location: row.location,
       type: row.type,
       description: row.description,
-      tags: row.tags || [],
+      tags: row.tags ? JSON.parse(row.tags) : [],
       logo: row.logo,
       specialization: row.specialization,
       industry: row.industry,
@@ -164,13 +173,14 @@ export class JobModelMethods {
       workHours: row.work_hours,
       workFormat: row.work_format,
       postedBy: row.posted_by,
-      isActive: row.is_active,
-      isFeatured: row.is_featured,
+      isActive: Boolean(row.is_active),
+      isFeatured: Boolean(row.is_featured),
       views: row.views,
       applications: row.applications,
-      expiresAt: row.expires_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      expiresAt: new Date(row.expires_at),
+      postedAt: createdDate.toLocaleDateString('ru-RU'),
+      createdAt: createdDate,
+      updatedAt: new Date(row.updated_at),
     };
   }
 

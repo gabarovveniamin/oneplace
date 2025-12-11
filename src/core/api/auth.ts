@@ -37,33 +37,36 @@ export class AuthApiService {
   // Регистрация
   async register(userData: RegisterRequest): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>('/auth/register', userData);
-    
+
     // Сохраняем токен в localStorage
     if (response.data?.token) {
       localStorage.setItem('authToken', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
     }
-    
+
     return response.data;
   }
 
   // Вход
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>('/auth/login', credentials);
-    
+
     // Сохраняем токен в localStorage
     if (response.data?.token) {
       localStorage.setItem('authToken', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
     }
-    
+
     return response.data;
   }
 
   // Получить профиль текущего пользователя
   async getProfile(): Promise<UserResponse> {
-    const response = await apiClient.get<UserResponse>('/auth/profile');
-    return response.data;
+    const response = await apiClient.get<any>('/auth/profile');
+    // Backend returns { success: true, data: { user: UserResponse } }
+    // ApiClient returns the full JSON response
+    // So response.data is { user: UserResponse }
+    return response.data?.user || response.data;
   }
 
   // Обновить профиль
@@ -73,22 +76,25 @@ export class AuthApiService {
     phone?: string;
     avatar?: string;
   }): Promise<UserResponse> {
-    const response = await apiClient.put<UserResponse>('/auth/profile', userData);
-    
+    const response = await apiClient.put<any>('/auth/profile', userData);
+
+    // Получаем обновленного пользователя из ответа
+    const updatedUser = response.data?.user || response.data;
+
     // Обновляем данные пользователя в localStorage
-    if (response.data) {
-      localStorage.setItem('user', JSON.stringify(response.data));
+    if (updatedUser) {
+      localStorage.setItem('user', JSON.stringify(updatedUser));
     }
-    
-    return response.data;
+
+    return updatedUser;
   }
 
-  // Сменить пароль
-  async changePassword(data: {
-    currentPassword: string;
-    newPassword: string;
-  }): Promise<void> {
-    await apiClient.put('/auth/change-password', data);
+  // Сменить пароль  
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await apiClient.put('/auth/change-password', {
+      currentPassword,
+      newPassword
+    });
   }
 
   // Выход

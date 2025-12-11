@@ -4,13 +4,24 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from './config/config';
 import { testConnection } from './config/database';
+import { initializeDatabase } from './config/initDatabase';
+import { seedDatabase } from './config/seed';
 import { errorHandler, notFound } from './middleware/errorHandler';
 
 // Import routes
 import authRoutes from './routes/auth';
 import jobRoutes from './routes/jobs';
+import adminRoutes from './routes/admin';
+import favoritesRoutes from './routes/favorites';
+import applicationRoutes from './routes/applications';
+import notificationRoutes from './routes/notifications';
 
 const app = express();
+
+// Initialize database
+initializeDatabase();
+// Seed database with test data if empty
+seedDatabase();
 
 // Test database connection
 testConnection();
@@ -18,10 +29,19 @@ testConnection();
 // Security middleware
 app.use(helmet());
 
-// CORS
+// Request logger
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.url}`, {
+    origin: req.headers.origin,
+    ip: req.ip
+  });
+  next();
+});
+
+// CORS - permissive for development
 app.use(cors({
-  origin: config.cors.origin,
-  credentials: config.cors.credentials,
+  origin: true, // Allow any origin
+  credentials: true, // Allow cookies
 }));
 
 // Rate limiting
@@ -52,6 +72,10 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use(notFound);

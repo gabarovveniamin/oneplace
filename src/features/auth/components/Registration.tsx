@@ -3,22 +3,25 @@ import { Button } from "../../../shared/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/components/card";
 import { Input } from "../../../shared/ui/components/input";
 import { Label } from "../../../shared/ui/components/label";
-import { ArrowLeft, User, Mail, Lock, AlertCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, User, Mail, Lock, AlertCircle, CheckCircle, Briefcase } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
 import { Alert, AlertDescription } from '../../../shared/ui/components/alert';
+import { cn } from '../../../shared/ui/components/utils';
 
 interface RegistrationProps {
   onBack: () => void;
   onRegistrationComplete: () => void;
+  onSwitchToLogin?: () => void;
 }
 
-export function Registration({ onBack, onRegistrationComplete }: RegistrationProps) {
+export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin }: RegistrationProps) {
   const [step, setStep] = useState<'register' | 'resume-choice'>('register');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<'user' | 'employer'>('user');
   const [formData, setFormData] = useState({
     firstName: '',
-    lastName: '', 
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -77,7 +80,7 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
 
   const handleRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -91,16 +94,21 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
         password: formData.password,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        role: 'user'
+        role: role
       });
 
       console.log('✅ Регистрация успешна:', response);
-      
-      // Переходим к выбору типа резюме
-      setStep('resume-choice');
+
+      // Если работодатель, сразу завершаем (без резюме)
+      if (role === 'employer') {
+        onRegistrationComplete();
+      } else {
+        // Переходим к выбору типа резюме для соискателя
+        setStep('resume-choice');
+      }
     } catch (err: any) {
       console.error('❌ Ошибка регистрации:', err);
-      
+
       // Обрабатываем ошибки валидации с бэкенда
       if (err?.details?.errors) {
         const backendErrors: Record<string, string> = {};
@@ -181,7 +189,7 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
                 </CardContent>
               </Card>
             </div>
-            
+
             <div className="text-center">
               <Button variant="ghost" onClick={onBack} className="text-gray-600 dark:text-gray-300">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -213,6 +221,44 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div
+                className={cn(
+                  "cursor-pointer rounded-lg border-2 p-4 text-center transition-all hover:bg-slate-50 dark:hover:bg-slate-800",
+                  role === 'user'
+                    ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20"
+                    : "border-slate-200 dark:border-slate-700"
+                )}
+                onClick={() => setRole('user')}
+              >
+                <div className={cn(
+                  "mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full",
+                  role === 'user' ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-500"
+                )}>
+                  <User className="h-6 w-6" />
+                </div>
+                <div className="font-semibold text-sm">Ищу работу</div>
+              </div>
+
+              <div
+                className={cn(
+                  "cursor-pointer rounded-lg border-2 p-4 text-center transition-all hover:bg-slate-50 dark:hover:bg-slate-800",
+                  role === 'employer'
+                    ? "border-green-600 bg-green-50 dark:bg-green-900/20"
+                    : "border-slate-200 dark:border-slate-700"
+                )}
+                onClick={() => setRole('employer')}
+              >
+                <div className={cn(
+                  "mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full",
+                  role === 'employer' ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-500"
+                )}>
+                  <Briefcase className="h-6 w-6" />
+                </div>
+                <div className="font-semibold text-sm">Я работодатель</div>
+              </div>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
@@ -309,9 +355,9 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
               )}
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700" 
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={loading}
             >
               {loading ? 'Регистрация...' : 'Зарегистрироваться'}
@@ -320,14 +366,14 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
             <div className="text-center space-y-2">
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Уже есть аккаунт?{' '}
-                <button type="button" className="text-blue-600 hover:underline">
+                <button type="button" className="text-blue-600 hover:underline" onClick={onSwitchToLogin}>
                   Войти
                 </button>
               </p>
-              <Button 
+              <Button
                 type="button"
-                variant="ghost" 
-                onClick={onBack} 
+                variant="ghost"
+                onClick={onBack}
                 className="text-gray-600 dark:text-gray-300"
                 disabled={loading}
               >
