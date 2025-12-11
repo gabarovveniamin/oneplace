@@ -1,22 +1,27 @@
 import { useState } from 'react';
 import * as React from 'react';
 import { Header, Hero, Footer } from './shared/ui/components';
-import { 
-  FilterTabs, 
-  JobsList, 
-  JobDetails 
+import {
+  FilterTabs,
+  JobsList,
+  JobDetails
 } from './features/jobs/components';
 import { Profile, PostJob } from './features/profile/components';
-import { Registration, ExtendedResumeBuilder } from './features/auth/components';
+import { Registration, ExtendedResumeBuilder, AuthDialog } from './features/auth/components';
+import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { Job, SearchFilters } from './shared/types/job';
 import { useJobs } from './features/jobs/hooks/useJobs';
+import { authApiService, UserResponse } from './core/api/auth';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'post-job'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'post-job' | 'admin'>('home');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [authDialogView, setAuthDialogView] = useState<'login' | 'register'>('login');
+  const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
+
   // Используем хук для работы с вакансиями
   const {
     jobs: filteredJobs,
@@ -30,7 +35,7 @@ export default function App() {
   } = useJobs();
 
   // Подсчитываем количество активных фильтров
-  const activeFiltersCount = Object.values(searchFilters).filter(value => 
+  const activeFiltersCount = Object.values(searchFilters).filter(value =>
     value !== undefined && value !== '' && value !== null
   ).length;
 
@@ -120,6 +125,14 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Load current user from localStorage
+  React.useEffect(() => {
+    const user = authApiService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+    }
+  }, []);
+
   // Handle theme persistence and application
   React.useEffect(() => {
     // Load saved theme preference
@@ -149,8 +162,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header на всех страницах */}
-      <Header 
-        isDarkMode={isDarkMode} 
+      <Header
+        isDarkMode={isDarkMode}
         onThemeToggle={toggleTheme}
         onSearch={handleHeaderSearch}
         onClearSearch={handleHeaderClearSearch}
@@ -158,41 +171,56 @@ export default function App() {
         onSearchValueChange={handleSearchValueChange}
         activeFiltersCount={activeFiltersCount}
         onLogoClick={handleLogoClick}
+        onLoginClick={() => {
+          setAuthDialogView('login');
+          setIsAuthDialogOpen(true);
+        }}
+        onRegisterClick={() => {
+          setAuthDialogView('register');
+          setIsAuthDialogOpen(true);
+        }}
+        onProfileClick={handleProfileClick}
+        onAdminClick={() => setCurrentView('admin')}
+        currentUser={currentUser}
       />
-      
+
       {/* Основной контент */}
       <main className="flex-1">
         {currentView === 'home' && (
           <>
             <Hero />
             <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-            <JobsList 
-              jobs={filteredJobs} 
+            <JobsList
+              jobs={filteredJobs}
               loading={jobsLoading}
               error={jobsError}
-              onJobClick={handleJobClick} 
+              onJobClick={handleJobClick}
             />
           </>
         )}
-        
+
         {currentView === 'job' && selectedJob && (
           <JobDetails job={selectedJob} onBack={handleBackToHome} />
         )}
-        
+
         {currentView === 'profile' && (
-          <Profile onBack={handleBackToHome} />
+          <Profile
+            onBack={handleBackToHome}
+            onJobClick={handleJobClick}
+            onAdminClick={() => setCurrentView('admin')}
+          />
         )}
 
         {currentView === 'register' && (
-          <Registration 
-            onBack={handleBackToHome} 
+          <Registration
+            onBack={handleBackToHome}
             onRegistrationComplete={handleRegistrationComplete}
           />
         )}
 
         {currentView === 'resume-builder' && (
-          <ExtendedResumeBuilder 
-            onBack={() => setCurrentView('register')} 
+          <ExtendedResumeBuilder
+            onBack={() => setCurrentView('register')}
             onComplete={handleResumeComplete}
           />
         )}
@@ -200,8 +228,12 @@ export default function App() {
         {currentView === 'post-job' && (
           <PostJob onBack={handleBackToHome} />
         )}
+
+        {currentView === 'admin' && (
+          <AdminDashboard />
+        )}
       </main>
-      
+
       {/* Quick Profile Access */}
       {currentView === 'home' && (
         <div className="fixed bottom-6 right-6 z-40">
@@ -215,9 +247,16 @@ export default function App() {
           </button>
         </div>
       )}
-      
+
       {/* Footer на всех страницах */}
       <Footer />
+
+      {/* Auth Dialog */}
+      <AuthDialog
+        isOpen={isAuthDialogOpen}
+        onClose={() => setIsAuthDialogOpen(false)}
+        defaultView={authDialogView}
+      />
     </div>
   );
 }

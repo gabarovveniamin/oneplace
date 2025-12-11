@@ -1,3 +1,4 @@
+import React from 'react';
 import { Card, CardContent, CardFooter } from "../../../shared/ui/components/card";
 import { Badge } from "../../../shared/ui/components/badge";
 import { Button } from "../../../shared/ui/components/button";
@@ -8,9 +9,11 @@ import { Job } from "../types";
 interface JobCardProps {
   job: Job;
   onJobClick: (job: Job) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (jobId: string, e: React.MouseEvent) => void;
 }
 
-export function JobCard({ job, onJobClick }: JobCardProps) {
+export function JobCard({ job, onJobClick, isFavorite, onToggleFavorite }: JobCardProps) {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'full-time': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
@@ -56,8 +59,11 @@ export function JobCard({ job, onJobClick }: JobCardProps) {
               <p className="text-muted-foreground font-medium">{job.company}</p>
             </div>
           </div>
-          <button className="text-muted-foreground hover:text-red-500 dark:hover:text-red-400 transition-colors p-2 rounded-lg hover:bg-accent">
-            <Heart className="h-5 w-5" />
+          <button
+            className={`transition-colors p-2 rounded-lg hover:bg-accent z-10 ${isFavorite ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+            onClick={(e) => onToggleFavorite?.(job.id, e)}
+          >
+            <Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />
           </button>
         </div>
 
@@ -84,9 +90,9 @@ export function JobCard({ job, onJobClick }: JobCardProps) {
               {getTypeLabel(job.type)}
             </Badge>
             {job.tags.slice(0, 2).map((tag, index) => (
-              <Badge 
-                key={index} 
-                variant="secondary" 
+              <Badge
+                key={index}
+                variant="secondary"
                 className="text-xs bg-accent hover:bg-accent/80 text-accent-foreground border border-border/50"
               >
                 {tag}

@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { randomBytes } from 'crypto';
 
 export interface Job {
   id: string;
@@ -10,7 +11,7 @@ export interface Job {
   description: string;
   tags: string[];
   logo?: string;
-  
+
   // Extended fields
   specialization?: string;
   industry?: string;
@@ -24,7 +25,7 @@ export interface Job {
   schedule?: 'flexible' | 'fixed' | 'shift' | 'night' | 'weekend';
   workHours?: number;
   workFormat?: 'office' | 'remote' | 'hybrid';
-  
+
   // Metadata
   postedBy: string;
   isActive: boolean;
@@ -32,9 +33,10 @@ export interface Job {
   views: number;
   applications: number;
   expiresAt: Date;
+  postedAt: string;
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Populated fields
   postedByUser?: {
     id: string;
@@ -118,34 +120,45 @@ export interface PaginationOptions {
   limit: number;
 }
 
+// Генерация UUID для SQLite
+const generateId = (): string => {
+  return randomBytes(16).toString('hex');
+};
+
 export class JobModel {
   // Создание вакансии
   static async create(jobData: CreateJobData): Promise<Job> {
-    const result = await query(
+    const id = generateId();
+    const tagsJson = jobData.tags ? JSON.stringify(jobData.tags) : null;
+
+    await query(
       `INSERT INTO jobs (
-        title, company, salary, location, type, description, tags, logo,
+        id, title, company, salary, location, type, description, tags, logo,
         specialization, industry, region, salary_from, salary_to, salary_frequency,
         education, experience, employment_type, schedule, work_hours, work_format,
         posted_by
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
-      ) RETURNING *`,
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )`,
       [
-        jobData.title, jobData.company, jobData.salary, jobData.location, jobData.type,
-        jobData.description, jobData.tags || [], jobData.logo, jobData.specialization,
-        jobData.industry, jobData.region, jobData.salaryFrom, jobData.salaryTo,
-        jobData.salaryFrequency, jobData.education, jobData.experience, jobData.employmentType,
-        jobData.schedule, jobData.workHours, jobData.workFormat, jobData.postedBy
+        id, jobData.title, jobData.company, jobData.salary, jobData.location, jobData.type,
+        jobData.description, tagsJson, jobData.logo || null, jobData.specialization || null,
+        jobData.industry || null, jobData.region || null, jobData.salaryFrom || null, jobData.salaryTo || null,
+        jobData.salaryFrequency || null, jobData.education || null, jobData.experience || null,
+        jobData.employmentType || null, jobData.schedule || null, jobData.workHours || null,
+        jobData.workFormat || null, jobData.postedBy
       ]
     );
 
+    // Получаем созданную вакансию
+    const result = await query('SELECT * FROM jobs WHERE id = ?', [id]);
     return this.mapRowToJob(result.rows[0]);
   }
 
   // Поиск вакансии по ID
   static async findById(id: string, includeInactive = false): Promise<Job | null> {
-    const whereClause = includeInactive ? 'WHERE j.id = $1' : 'WHERE j.id = $1 AND j.is_active = true';
-    
+    const whereClause = includeInactive ? 'WHERE j.id = ?' : 'WHERE j.id = ? AND j.is_active = 1';
+
     const result = await query(
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
        FROM jobs j
@@ -170,19 +183,20 @@ export class JobModel {
     const offset = (page - 1) * limit;
 
     // Построение WHERE условий
-    const whereConditions = [];
-    const values = [];
-    let paramCount = 1;
+    const whereConditions: string[] = [];
+    const values: any[] = [];
 
     // Базовое условие для активных вакансий
     if (filters.isActive !== false) {
-      whereConditions.push(`j.is_active = $${paramCount++}`);
-      values.push(true);
+      whereConditions.push('j.is_active = ?');
+      values.push(1);
     }
 
-    // Текстовый поиск
+    // Текстовый поиск через FTS5
     if (filters.keyword) {
-      whereConditions.push(`to_tsvector('russian', j.title || ' ' || j.description || ' ' || j.company) @@ plainto_tsquery('russian', $${paramCount++})`);
+      whereConditions.push(`j.id IN (
+        SELECT id FROM jobs_fts WHERE jobs_fts MATCH ?
+      )`);
       values.push(filters.keyword);
     }
 
@@ -196,31 +210,31 @@ export class JobModel {
     exactMatchFields.forEach(field => {
       const value = filters[field as keyof JobFilters];
       if (value) {
-        whereConditions.push(`j.${this.camelToSnake(field)} = $${paramCount++}`);
+        whereConditions.push(`j.${this.camelToSnake(field)} = ?`);
         values.push(value);
       }
     });
 
     // Диапазон зарплаты
     if (filters.salaryFrom) {
-      whereConditions.push(`j.salary_from >= $${paramCount++}`);
+      whereConditions.push('j.salary_from >= ?');
       values.push(filters.salaryFrom);
     }
     if (filters.salaryTo) {
-      whereConditions.push(`j.salary_to <= $${paramCount++}`);
+      whereConditions.push('j.salary_to <= ?');
       values.push(filters.salaryTo);
     }
 
     // Рабочие часы
     if (filters.workHours) {
-      whereConditions.push(`j.work_hours = $${paramCount++}`);
+      whereConditions.push('j.work_hours = ?');
       values.push(filters.workHours);
     }
 
     // Featured
     if (filters.isFeatured !== undefined) {
-      whereConditions.push(`j.is_featured = $${paramCount++}`);
-      values.push(filters.isFeatured);
+      whereConditions.push('j.is_featured = ?');
+      values.push(filters.isFeatured ? 1 : 0);
     }
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
@@ -230,16 +244,10 @@ export class JobModel {
       `SELECT COUNT(*) as total FROM jobs j ${whereClause}`,
       values
     );
-    const total = parseInt(countResult.rows[0].total);
+    const total = countResult.rows[0].total;
 
     // Получение данных с пагинацией
-    const orderBy = filters.keyword 
-      ? `ORDER BY ts_rank(to_tsvector('russian', j.title || ' ' || j.description || ' ' || j.company), plainto_tsquery('russian', $${paramCount++})) DESC, j.created_at DESC`
-      : 'ORDER BY j.created_at DESC';
-
-    if (filters.keyword) {
-      values.push(filters.keyword);
-    }
+    const orderBy = 'ORDER BY j.created_at DESC';
 
     const result = await query(
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
@@ -247,7 +255,7 @@ export class JobModel {
        LEFT JOIN users u ON j.posted_by = u.id
        ${whereClause}
        ${orderBy}
-       LIMIT $${paramCount++} OFFSET $${paramCount++}`,
+       LIMIT ? OFFSET ?`,
       [...values, limit, offset]
     );
 
@@ -256,8 +264,132 @@ export class JobModel {
     return { jobs, total };
   }
 
+  // Обновление вакансии
+  static async update(id: string, jobData: UpdateJobData): Promise<Job | null> {
+    const fields = [];
+    const values = [];
+
+    if (jobData.title !== undefined) {
+      fields.push('title = ?');
+      values.push(jobData.title);
+    }
+    if (jobData.company !== undefined) {
+      fields.push('company = ?');
+      values.push(jobData.company);
+    }
+    if (jobData.salary !== undefined) {
+      fields.push('salary = ?');
+      values.push(jobData.salary);
+    }
+    if (jobData.location !== undefined) {
+      fields.push('location = ?');
+      values.push(jobData.location);
+    }
+    if (jobData.type !== undefined) {
+      fields.push('type = ?');
+      values.push(jobData.type);
+    }
+    if (jobData.description !== undefined) {
+      fields.push('description = ?');
+      values.push(jobData.description);
+    }
+    if (jobData.tags !== undefined) {
+      fields.push('tags = ?');
+      values.push(JSON.stringify(jobData.tags));
+    }
+    if (jobData.logo !== undefined) {
+      fields.push('logo = ?');
+      values.push(jobData.logo);
+    }
+    if (jobData.specialization !== undefined) {
+      fields.push('specialization = ?');
+      values.push(jobData.specialization);
+    }
+    if (jobData.industry !== undefined) {
+      fields.push('industry = ?');
+      values.push(jobData.industry);
+    }
+    if (jobData.region !== undefined) {
+      fields.push('region = ?');
+      values.push(jobData.region);
+    }
+    if (jobData.salaryFrom !== undefined) {
+      fields.push('salary_from = ?');
+      values.push(jobData.salaryFrom);
+    }
+    if (jobData.salaryTo !== undefined) {
+      fields.push('salary_to = ?');
+      values.push(jobData.salaryTo);
+    }
+    if (jobData.salaryFrequency !== undefined) {
+      fields.push('salary_frequency = ?');
+      values.push(jobData.salaryFrequency);
+    }
+    if (jobData.education !== undefined) {
+      fields.push('education = ?');
+      values.push(jobData.education);
+    }
+    if (jobData.experience !== undefined) {
+      fields.push('experience = ?');
+      values.push(jobData.experience);
+    }
+    if (jobData.employmentType !== undefined) {
+      fields.push('employment_type = ?');
+      values.push(jobData.employmentType);
+    }
+    if (jobData.schedule !== undefined) {
+      fields.push('schedule = ?');
+      values.push(jobData.schedule);
+    }
+    if (jobData.workHours !== undefined) {
+      fields.push('work_hours = ?');
+      values.push(jobData.workHours);
+    }
+    if (jobData.workFormat !== undefined) {
+      fields.push('work_format = ?');
+      values.push(jobData.workFormat);
+    }
+    if (jobData.isActive !== undefined) {
+      fields.push('is_active = ?');
+      values.push(jobData.isActive ? 1 : 0);
+    }
+    if (jobData.isFeatured !== undefined) {
+      fields.push('is_featured = ?');
+      values.push(jobData.isFeatured ? 1 : 0);
+    }
+
+    if (fields.length === 0) {
+      return this.findById(id);
+    }
+
+    values.push(id);
+    await query(
+      `UPDATE jobs SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    return this.findById(id);
+  }
+
+  // Удаление вакансии
+  static async delete(id: string): Promise<boolean> {
+    const result = await query('DELETE FROM jobs WHERE id = ?', [id]);
+    return result.rowCount > 0;
+  }
+
+  // Увеличение счетчика просмотров
+  static async incrementViews(id: string): Promise<void> {
+    await query('UPDATE jobs SET views = views + 1 WHERE id = ?', [id]);
+  }
+
+  // Увеличение счетчика откликов
+  static async incrementApplications(id: string): Promise<void> {
+    await query('UPDATE jobs SET applications = applications + 1 WHERE id = ?', [id]);
+  }
+
   // Маппинг строки БД в объект Job
   private static mapRowToJob(row: any): Job {
+    const createdDate = new Date(row.created_at);
     return {
       id: row.id,
       title: row.title,
@@ -266,7 +398,7 @@ export class JobModel {
       location: row.location,
       type: row.type,
       description: row.description,
-      tags: row.tags || [],
+      tags: row.tags ? JSON.parse(row.tags) : [],
       logo: row.logo,
       specialization: row.specialization,
       industry: row.industry,
@@ -281,13 +413,14 @@ export class JobModel {
       workHours: row.work_hours,
       workFormat: row.work_format,
       postedBy: row.posted_by,
-      isActive: row.is_active,
-      isFeatured: row.is_featured,
+      isActive: Boolean(row.is_active),
+      isFeatured: Boolean(row.is_featured),
       views: row.views,
       applications: row.applications,
-      expiresAt: row.expires_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+      expiresAt: new Date(row.expires_at),
+      postedAt: createdDate.toLocaleDateString('ru-RU'),
+      createdAt: createdDate,
+      updatedAt: new Date(row.updated_at),
     };
   }
 

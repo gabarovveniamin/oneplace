@@ -10,15 +10,16 @@ import { Alert, AlertDescription } from '../../../shared/ui/components/alert';
 interface RegistrationProps {
   onBack: () => void;
   onRegistrationComplete: () => void;
+  onSwitchToLogin?: () => void;
 }
 
-export function Registration({ onBack, onRegistrationComplete }: RegistrationProps) {
+export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin }: RegistrationProps) {
   const [step, setStep] = useState<'register' | 'resume-choice'>('register');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     firstName: '',
-    lastName: '', 
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: ''
@@ -77,7 +78,7 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
 
   const handleRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -95,12 +96,12 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
       });
 
       console.log('✅ Регистрация успешна:', response);
-      
+
       // Переходим к выбору типа резюме
       setStep('resume-choice');
     } catch (err: any) {
       console.error('❌ Ошибка регистрации:', err);
-      
+
       // Обрабатываем ошибки валидации с бэкенда
       if (err?.details?.errors) {
         const backendErrors: Record<string, string> = {};
@@ -181,7 +182,7 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
                 </CardContent>
               </Card>
             </div>
-            
+
             <div className="text-center">
               <Button variant="ghost" onClick={onBack} className="text-gray-600 dark:text-gray-300">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -309,9 +310,9 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
               )}
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700" 
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={loading}
             >
               {loading ? 'Регистрация...' : 'Зарегистрироваться'}
@@ -320,14 +321,14 @@ export function Registration({ onBack, onRegistrationComplete }: RegistrationPro
             <div className="text-center space-y-2">
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Уже есть аккаунт?{' '}
-                <button type="button" className="text-blue-600 hover:underline">
+                <button type="button" className="text-blue-600 hover:underline" onClick={onSwitchToLogin}>
                   Войти
                 </button>
               </p>
-              <Button 
+              <Button
                 type="button"
-                variant="ghost" 
-                onClick={onBack} 
+                variant="ghost"
+                onClick={onBack}
                 className="text-gray-600 dark:text-gray-300"
                 disabled={loading}
               >

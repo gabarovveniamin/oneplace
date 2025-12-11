@@ -100,7 +100,7 @@ export const getJobs = async (req: Request, res: Response, next: NextFunction): 
 
     // Build filter object
     const filters: JobFilters = { isActive: true };
-    
+
     if (req.query.type && req.query.type !== 'all') {
       filters.type = req.query.type as string;
     }
@@ -111,12 +111,14 @@ export const getJobs = async (req: Request, res: Response, next: NextFunction): 
 
     res.json({
       success: true,
-      data: jobs,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
+      data: {
+        data: jobs,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
       },
     });
   } catch (error) {
@@ -194,12 +196,14 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
 
     res.json({
       success: true,
-      data: jobs,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
+      data: {
+        data: jobs,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
       },
     });
   } catch (error) {
@@ -211,9 +215,18 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
 export const createJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user;
+
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
     const job = await JobModel.create({
       ...req.body,
-      postedBy: user.id, // Use UUID string instead of MongoDB _id
+      postedBy: user.id,
     });
 
     res.status(201).json({

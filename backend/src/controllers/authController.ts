@@ -188,13 +188,20 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
 export const updateProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user as User;
-    const { firstName, lastName, phone } = req.body;
+    const { firstName, lastName, phone, avatar } = req.body;
 
-    const updatedUser = await UserModel.update(user.id, {
-      firstName,
-      lastName,
-      phone,
-    });
+    console.log('updateProfile controller called with body:', req.body);
+
+    const updateData: any = {};
+
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (phone !== undefined) updateData.phone = phone;
+    if (avatar !== undefined) updateData.avatar = avatar;
+
+    console.log('Constructed updateData:', updateData);
+
+    const updatedUser = await UserModel.update(user.id, updateData);
 
     if (!updatedUser) {
       res.status(404).json({
@@ -235,7 +242,7 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 
     // Get user with password
     const userWithPassword = await UserModel.findByEmail(user.email, true);
-    
+
     if (!userWithPassword) {
       res.status(404).json({
         success: false,
@@ -256,7 +263,7 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 
     // Update password
     const success = await UserModel.updatePassword(user.id, newPassword);
-    
+
     if (!success) {
       res.status(500).json({
         success: false,

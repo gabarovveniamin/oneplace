@@ -28,23 +28,23 @@ router.get('/stats', getJobsStats);
 router.get('/:id', optionalAuth, getJobById);
 
 // Protected routes
-router.post('/', 
-  authenticate, 
+router.post('/',
+  authenticate,
   authorize('user', 'employer', 'admin'),
-  createJobValidation, 
-  validate(createJobValidation), 
+  createJobValidation,
+  validate(createJobValidation),
   createJob
 );
 
-router.put('/:id', 
-  authenticate, 
-  updateJobValidation, 
-  validate(updateJobValidation), 
+router.put('/:id',
+  authenticate,
+  updateJobValidation,
+  validate(updateJobValidation),
   updateJob
 );
 
-router.delete('/:id', 
-  authenticate, 
+router.delete('/:id',
+  authenticate,
   deleteJob
 );
 

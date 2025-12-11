@@ -4,6 +4,7 @@ import { Input } from "./input";
 import { Search, User, Filter, X, ChevronDown } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchFilters } from "../../../shared/types/job";
+import { UserResponse } from "../../../core/api/auth";
 import { Card, CardContent } from "./card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 
@@ -16,17 +17,27 @@ interface HeaderProps {
   onSearchValueChange?: (value: string) => void;
   activeFiltersCount?: number;
   onLogoClick?: () => void;
+  onLoginClick?: () => void;
+  onRegisterClick?: () => void;
+  onProfileClick?: () => void;
+  onAdminClick?: () => void;
+  currentUser?: UserResponse | null;
 }
 
-export function Header({ 
-  isDarkMode, 
-  onThemeToggle, 
-  onSearch, 
-  onClearSearch, 
-  searchValue = '', 
+export function Header({
+  isDarkMode,
+  onThemeToggle,
+  onSearch,
+  onClearSearch,
+  searchValue = '',
   onSearchValueChange,
   activeFiltersCount = 0,
-  onLogoClick
+  onLogoClick,
+  onLoginClick,
+  onRegisterClick,
+  onProfileClick,
+  onAdminClick,
+  currentUser
 }: HeaderProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -133,28 +144,54 @@ export function Header({
 
             {/* Navigation Links */}
             <div className="flex items-center space-x-4">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="text-muted-foreground hover:text-blue-600"
                 onClick={() => window.location.hash = 'post-job'}
               >
                 Разместить вакансию
               </Button>
-              
+
               {/* Theme Toggle */}
               <ThemeToggle isDark={isDarkMode} onToggle={onThemeToggle} />
-              
+
               {/* Auth Buttons */}
               <div className="flex items-center space-x-4">
-                <Button variant="ghost" className="text-muted-foreground hover:text-blue-600">
-                  Войти
-                </Button>
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                  onClick={() => window.location.hash = 'register'}
-                >
-                  Зарегистрироваться
-                </Button>
+                {currentUser ? (
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium text-foreground">
+                      {currentUser.firstName} {currentUser.lastName}
+                    </span>
+                    {currentUser.role === 'admin' && (
+                      <Button
+                        variant="ghost"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => onAdminClick?.()}
+                      >
+                        Админ панель
+                      </Button>
+                    )}
+                    <Button variant="outline" className="rounded-lg" onClick={onProfileClick}>
+                      Профиль
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-blue-600"
+                      onClick={onLoginClick}
+                    >
+                      Войти
+                    </Button>
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                      onClick={onRegisterClick}
+                    >
+                      Зарегистрироваться
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

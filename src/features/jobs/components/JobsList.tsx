@@ -12,7 +12,11 @@ interface JobsListProps {
   onJobClick: (job: Job) => void;
 }
 
-export function JobsList({ jobs, loading = false, error = null, onJobClick }: JobsListProps) {
+import { useFavorites } from "../hooks/useFavorites";
+
+export function JobsList({ jobs = [], loading = false, error = null, onJobClick }: JobsListProps) {
+  const { isFavorite, toggleFavorite } = useFavorites();
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -24,7 +28,7 @@ export function JobsList({ jobs, loading = false, error = null, onJobClick }: Jo
             </h2>
           </div>
         </div>
-        
+
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
           {Array.from({ length: 6 }).map((_, index) => (
             <div key={index} className="border border-border rounded-lg p-6">
@@ -73,7 +77,7 @@ export function JobsList({ jobs, loading = false, error = null, onJobClick }: Jo
           Актуальные вакансии, подработки и проекты
         </p>
       </div>
-      
+
       {jobs.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-muted-foreground">
@@ -85,7 +89,13 @@ export function JobsList({ jobs, loading = false, error = null, onJobClick }: Jo
       ) : (
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
           {jobs.map((job) => (
-            <JobCard key={job.id} job={job} onJobClick={onJobClick} />
+            <JobCard
+              key={job.id}
+              job={job}
+              onJobClick={onJobClick}
+              isFavorite={isFavorite(job.id)}
+              onToggleFavorite={toggleFavorite}
+            />
           ))}
         </div>
       )}
