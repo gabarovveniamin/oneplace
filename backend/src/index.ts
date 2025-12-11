@@ -13,6 +13,8 @@ import authRoutes from './routes/auth';
 import jobRoutes from './routes/jobs';
 import adminRoutes from './routes/admin';
 import favoritesRoutes from './routes/favorites';
+import applicationRoutes from './routes/applications';
+import notificationRoutes from './routes/notifications';
 
 const app = express();
 
@@ -72,6 +74,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/favorites', favoritesRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use(notFound);

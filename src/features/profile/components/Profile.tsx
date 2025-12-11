@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
 import { FavoritesSection } from "./FavoritesSection";
+import { ApplicationsSection } from "./ApplicationsSection";
+import { EmployerApplicationsSection } from "./EmployerApplicationsSection";
 import { Job } from "../../../shared/types/job";
 
 interface ProfileProps {
@@ -767,6 +769,10 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
               </Card>
             </div>
           </div>
+          <ApplicationsSection onJobClick={onJobClick} />
+          {(user.role === 'employer' || user.role === 'admin') && (
+            <EmployerApplicationsSection />
+          )}
           <FavoritesSection onJobClick={onJobClick} />
         </div>
       </div>

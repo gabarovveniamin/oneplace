@@ -78,6 +78,36 @@ export const initializeDatabase = () => {
       )
     `);
 
+    // Создание таблицы заявок (откликов)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS applications (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        job_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'viewed', 'rejected', 'accepted')),
+        cover_letter TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Создание таблицы уведомлений
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        related_id TEXT,
+        is_read INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Создание индексов для пользователей
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);

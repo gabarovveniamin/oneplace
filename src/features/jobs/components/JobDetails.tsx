@@ -1,9 +1,12 @@
+import React, { useState } from 'react';
 import { Button } from "../../../shared/ui/components/button";
 import { Badge } from "../../../shared/ui/components/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/components/card";
 import { ImageWithFallback } from "../../../shared/ui/figma/ImageWithFallback";
 import { ArrowLeft, MapPin, Clock, Building, CheckCircle } from "lucide-react";
 import { Job } from "../types";
+import { applicationsApiService } from '../../../core/api/applications';
+import { authApiService } from '../../../core/api/auth';
 
 interface JobDetailsProps {
   job: Job;
@@ -11,6 +14,9 @@ interface JobDetailsProps {
 }
 
 export function JobDetails({ job, onBack }: JobDetailsProps) {
+  const [isApplying, setIsApplying] = React.useState(false);
+  const [hasApplied, setHasApplied] = React.useState(false);
+
   const skills = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Docker'];
   const requirements = [
     'Опыт работы с React от 2 лет',
@@ -19,6 +25,28 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
     'Понимание принципов разработки UI/UX',
     'Знание системы контроля версий Git'
   ];
+
+  const handleApply = async () => {
+    if (!authApiService.isAuthenticated()) {
+      alert('Пожалуйста, войдите в систему, чтобы откликнуться');
+      return;
+    }
+
+    try {
+      setIsApplying(true);
+      await applicationsApiService.apply(job.id);
+      setHasApplied(true);
+    } catch (error: any) {
+      if (error.message && error.message.includes('already applied')) {
+        setHasApplied(true);
+      } else {
+        console.error('Failed to apply:', error);
+        alert('Не удалось откликнуться: ' + (error.message || 'Unknown error'));
+      }
+    } finally {
+      setIsApplying(false);
+    }
+  };
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -43,8 +71,8 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={onBack}
           className="mb-6 text-muted-foreground hover:text-blue-600 hover:bg-accent"
         >
@@ -61,12 +89,12 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
                     {job.logo ? (
                       <ImageWithFallback
                         src={job.logo}
-                        alt={job.company}
+                        alt={job.company || 'Company'}
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-blue-500 to-green-500 flex items-center justify-center text-white font-bold text-xl">
-                        {job.company.charAt(0)}
+                        {job.company ? job.company.charAt(0) : '?'}
                       </div>
                     )}
                   </div>
@@ -75,7 +103,7 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
                     <div className="flex items-center space-x-4 text-muted-foreground mb-4">
                       <div className="flex items-center space-x-1">
                         <Building className="h-4 w-4" />
-                        <span>{job.company}</span>
+                        <span>{job.company || 'Компания не указана'}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <MapPin className="h-4 w-4" />
@@ -105,8 +133,8 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
                     </h3>
                     <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
                       <p className="text-muted-foreground leading-relaxed">
-                        {job.description} Мы ищем талантливого разработчика для работы над современными веб-приложениями. 
-                        Вы будете работать в команде профессионалов над интересными проектами, 
+                        {job.description} Мы ищем талантливого разработчика для работы над современными веб-приложениями.
+                        Вы будете работать в команде профессионалов над интересными проектами,
                         используя передовые технологии и методы разработки.
                       </p>
                     </div>
@@ -135,9 +163,9 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
                     <div className="bg-muted/50 rounded-lg p-4 border border-border/50">
                       <div className="flex flex-wrap gap-2">
                         {skills.map((skill, index) => (
-                          <Badge 
-                            key={index} 
-                            variant="secondary" 
+                          <Badge
+                            key={index}
+                            variant="secondary"
                             className="bg-accent hover:bg-accent/80 text-accent-foreground border border-border/50 px-3 py-1"
                           >
                             {skill}
@@ -155,9 +183,20 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
             <Card className="shadow-md border border-border bg-card sticky top-24">
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md">
-                    Откликнуться
-                  </Button>
+                  {hasApplied ? (
+                    <Button className="w-full bg-green-600 hover:bg-green-700 text-white shadow-md cursor-default" disabled>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Вы откликнулись
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleApply}
+                      disabled={isApplying}
+                      className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-md"
+                    >
+                      {isApplying ? 'Отправка...' : 'Откликнуться'}
+                    </Button>
+                  )}
                   <Button variant="outline" className="w-full border-border hover:bg-accent">
                     Сохранить вакансию
                   </Button>

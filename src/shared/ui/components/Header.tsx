@@ -7,6 +7,7 @@ import { SearchFilters } from "../../../shared/types/job";
 import { UserResponse } from "../../../core/api/auth";
 import { Card, CardContent } from "./card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
+import { NotificationsPopover } from '../../../features/notifications/components/NotificationsPopover';
 
 interface HeaderProps {
   isDarkMode: boolean;
@@ -144,13 +145,15 @@ export function Header({
 
             {/* Navigation Links */}
             <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                className="text-muted-foreground hover:text-blue-600"
-                onClick={() => window.location.hash = 'post-job'}
-              >
-                Разместить вакансию
-              </Button>
+              {currentUser && (currentUser.role === 'employer' || currentUser.role === 'admin') && (
+                <Button
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-blue-600"
+                  onClick={() => window.location.hash = 'post-job'}
+                >
+                  Разместить вакансию
+                </Button>
+              )}
 
               {/* Theme Toggle */}
               <ThemeToggle isDark={isDarkMode} onToggle={onThemeToggle} />
@@ -159,6 +162,7 @@ export function Header({
               <div className="flex items-center space-x-4">
                 {currentUser ? (
                   <div className="flex items-center space-x-3">
+                    <NotificationsPopover onNavigateToProfile={onProfileClick} />
                     <span className="text-sm font-medium text-foreground">
                       {currentUser.firstName} {currentUser.lastName}
                     </span>

@@ -60,7 +60,19 @@ export default function App() {
   };
 
   const handleRegistrationComplete = () => {
-    setCurrentView('resume-builder');
+    // Обновляем пользователя, так как он был сохранен в localStorage при регистрации
+    const user = authApiService.getCurrentUser();
+    if (user) {
+      setCurrentUser(user);
+      if (user.role === 'employer') {
+        setCurrentView('profile'); // Работодателя отправляем в профиль
+      } else {
+        setCurrentView('resume-builder'); // Соискателя - создавать резюме
+      }
+    } else {
+      // Fallback
+      setCurrentView('resume-builder');
+    }
   };
 
   const handleResumeComplete = () => {
@@ -115,7 +127,14 @@ export default function App() {
       if (window.location.hash === '#register') {
         setCurrentView('register');
       } else if (window.location.hash === '#post-job') {
-        setCurrentView('post-job');
+        const user = authApiService.getCurrentUser();
+        if (user && (user.role === 'employer' || user.role === 'admin')) {
+          setCurrentView('post-job');
+        } else {
+          // If not authorized, redirect to home
+          window.location.hash = '';
+          setCurrentView('home');
+        }
       }
     };
 
