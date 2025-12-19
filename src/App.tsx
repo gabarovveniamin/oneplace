@@ -6,7 +6,7 @@ import {
   JobsList,
   JobDetails
 } from './features/jobs/components';
-import { Profile, PostJob } from './features/profile/components';
+import { Profile, PostJob, ResumeViewer } from './features/profile/components';
 import { Registration, ExtendedResumeBuilder, AuthDialog } from './features/auth/components';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { Job, SearchFilters } from './shared/types/job';
@@ -14,13 +14,15 @@ import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'post-job' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin'>('home');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [authDialogView, setAuthDialogView] = useState<'login' | 'register'>('login');
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
+
+  const [viewTargetUserId, setViewTargetUserId] = useState<string | undefined>(undefined);
 
   // Используем хук для работы с вакансиями
   const {
@@ -33,6 +35,42 @@ export default function App() {
     handleAdvancedSearch,
     handleClearAdvancedSearch
   } = useJobs();
+
+  // Handle hash-based navigation
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash === '#register') {
+        setCurrentView('register');
+      } else if (hash === '#post-job') {
+        const user = authApiService.getCurrentUser();
+        if (user && (user.role === 'employer' || user.role === 'admin')) {
+          setCurrentView('post-job');
+        } else {
+          window.location.hash = '';
+          setCurrentView('home');
+        }
+      } else if (hash.startsWith('#resume/')) {
+        const userId = hash.split('/')[1];
+        if (userId) {
+          setViewTargetUserId(userId);
+          setCurrentView('resume-viewer');
+        }
+      } else if (hash.startsWith('#profile/')) {
+        const userId = hash.split('/')[1];
+        if (userId) {
+          setViewTargetUserId(userId);
+          setCurrentView('profile');
+        }
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    handleHashChange(); // Check initial hash
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
 
   // Подсчитываем количество активных фильтров
   const activeFiltersCount = Object.values(searchFilters).filter(value =>
@@ -59,19 +97,31 @@ export default function App() {
     setCurrentView('register');
   };
 
-  const handleRegistrationComplete = () => {
-    // Обновляем пользователя, так как он был сохранен в localStorage при регистрации
-    const user = authApiService.getCurrentUser();
+  const handleRegistrationComplete = (choice: 'basic' | 'extended', explicitUser?: UserResponse) => {
+    console.log('handleRegistrationComplete', { choice, explicitUser });
+
+    // Используем переданного пользователя или получаем из хранилища
+    const user = explicitUser || authApiService.getCurrentUser();
+
+    console.log('Resolved user:', user);
+
     if (user) {
       setCurrentUser(user);
       if (user.role === 'employer') {
-        setCurrentView('profile'); // Работодателя отправляем в профиль
+        setCurrentView('profile');
       } else {
-        setCurrentView('resume-builder'); // Соискателя - создавать резюме
+        if (choice === 'basic') {
+          // Если выбрано "Позже" (обычное) - сразу в профиль
+          setCurrentView('profile');
+        } else {
+          // Если "Настроить" (расширенное) - в конструктор
+          console.log('Navigating to resume-builder');
+          setCurrentView('resume-builder');
+        }
       }
     } else {
-      // Fallback
-      setCurrentView('resume-builder');
+      console.error('No user found after registration, redirecting to home');
+      setCurrentView('home');
     }
   };
 
@@ -110,6 +160,13 @@ export default function App() {
     setSelectedJob(null);
     // Очищаем хеш в URL
     window.location.hash = '';
+  };
+
+  const handleLogout = () => {
+    authApiService.logout();
+    setCurrentUser(null);
+    setCurrentView('home');
+    setIsAuthDialogOpen(false);
   };
 
   // Синхронизируем поисковое поле с фильтрами при загрузке
@@ -200,6 +257,7 @@ export default function App() {
         }}
         onProfileClick={handleProfileClick}
         onAdminClick={() => setCurrentView('admin')}
+        onLogout={handleLogout}
         currentUser={currentUser}
       />
 
@@ -224,26 +282,60 @@ export default function App() {
 
         {currentView === 'profile' && (
           <Profile
-            onBack={handleBackToHome}
+            userId={viewTargetUserId}
+            onBack={() => {
+              handleBackToHome();
+              setViewTargetUserId(undefined);
+              window.location.hash = '';
+            }}
             onJobClick={handleJobClick}
             onAdminClick={() => setCurrentView('admin')}
+            onCreateResume={() => setCurrentView('resume-builder')}
+            onShowResume={() => {
+              if (viewTargetUserId) {
+                window.location.hash = `#resume/${viewTargetUserId}`;
+              } else {
+                setCurrentView('resume-viewer');
+              }
+            }}
           />
         )}
 
         {currentView === 'register' && (
           <Registration
             onBack={handleBackToHome}
-            onRegistrationComplete={handleRegistrationComplete}
+            onRegistrationComplete={(user) => handleRegistrationComplete('basic', user)} // Fallback
+            onResumeChoice={handleRegistrationComplete}
+            onSwitchToLogin={() => {
+              setCurrentView('home');
+              setAuthDialogView('login');
+              setIsAuthDialogOpen(true);
+            }}
           />
         )}
 
         {currentView === 'resume-builder' && (
           <ExtendedResumeBuilder
-            onBack={() => setCurrentView('register')}
-            onComplete={handleResumeComplete}
+            onBack={() => setCurrentView('profile')}
+            onComplete={() => setCurrentView('resume-viewer')}
           />
         )}
 
+        {currentView === 'resume-viewer' && (
+          <ResumeViewer
+            onBack={() => {
+              if (viewTargetUserId) {
+                // Return to the public profile view
+                window.location.hash = `#profile/${viewTargetUserId}`;
+              } else {
+                setCurrentView('profile');
+              }
+            }}
+            onEdit={() => setCurrentView('resume-builder')}
+            userId={viewTargetUserId}
+            readOnly={!!viewTargetUserId}
+          />
+        )}
         {currentView === 'post-job' && (
           <PostJob onBack={handleBackToHome} />
         )}
@@ -275,6 +367,17 @@ export default function App() {
         isOpen={isAuthDialogOpen}
         onClose={() => setIsAuthDialogOpen(false)}
         defaultView={authDialogView}
+        onResumeChoice={(choice) => {
+          console.log('App: AuthDialog returned resume choice:', choice);
+          setIsAuthDialogOpen(false);
+          const user = authApiService.getCurrentUser();
+          setCurrentUser(user);
+          if (choice === 'extended') {
+            setCurrentView('resume-builder');
+          } else {
+            setCurrentView('profile'); // Or stay on home? User asked for "like in profile"
+          }
+        }}
       />
     </div>
   );

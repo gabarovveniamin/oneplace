@@ -5,7 +5,10 @@ import { config } from './config';
 const BetterSqlite3 = require('better-sqlite3');
 
 // Путь к файлу базы данных
-const dbPath = path.join(__dirname, '../../database.sqlite');
+// Путь к файлу базы данных
+// Using absolute path from process.cwd() (project root) to avoid relative path issues between src/ and dist/
+const dbPath = path.resolve(process.cwd(), 'database.sqlite');
+console.log('🔌 Database path resolved to:', dbPath);
 
 // Создаем подключение к SQLite
 const db = new BetterSqlite3(dbPath, {

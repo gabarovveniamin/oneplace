@@ -28,10 +28,15 @@ import { ApplicationsSection } from "./ApplicationsSection";
 import { EmployerApplicationsSection } from "./EmployerApplicationsSection";
 import { Job } from "../../../shared/types/job";
 
+import { resumeApiService } from '../../../core/api/resume';
+
 interface ProfileProps {
   onBack: () => void;
   onAdminClick?: () => void;
   onJobClick: (job: Job) => void;
+  onCreateResume?: () => void;
+  onShowResume?: () => void;
+  userId?: string;
 }
 
 interface UserProfile {
@@ -46,12 +51,19 @@ interface UserProfile {
   lastLogin?: string;
 }
 
-export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
+export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onShowResume, userId }: ProfileProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [hasResume, setHasResume] = useState(false);
+
+  // Determine if we are viewing our own profile
+  // If userId is undefined, we assume it's the current user (own profile)
+  // But we need to verify against the actual logged-in user ID to be sure
+  const currentUser = authApiService.getCurrentUser();
+  const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({
@@ -60,7 +72,7 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
     phone: ''
   });
 
-  // Local state for additional info (not saved to backend yet)
+  // Local state for additional info
   const [localData, setLocalData] = useState({
     position: '',
     bio: '',
@@ -83,23 +95,55 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
 
   useEffect(() => {
     loadProfile();
-  }, []);
+  }, [userId]);
 
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const profileData = await authApiService.getProfile();
+      // Fetch the specific user's profile
+      const profileData = await authApiService.getProfile(userId);
       setUser(profileData);
       setEditedData({
         firstName: profileData.firstName,
         lastName: profileData.lastName,
         phone: profileData.phone || '+7 '
       });
-      // Load from localStorage
-      const savedLocal = localStorage.getItem(`profile_${profileData.id}`);
-      if (savedLocal) {
-        setLocalData(JSON.parse(savedLocal));
+
+      // Handle extra data (Bio, Skills, etc.) via Resume or LocalStorage
+      if (isOwnProfile) {
+        // Own profile: Load from localStorage
+        const savedLocal = localStorage.getItem(`profile_${profileData.id}`);
+        if (savedLocal) {
+          setLocalData(JSON.parse(savedLocal));
+        }
       }
+
+      // Always try to fetch resume to check existence and/or populate data
+      // Check for resume (allow for all roles to view, but only 'user' typically has one)
+      if (profileData.role === 'user') {
+        try {
+          const resume = await resumeApiService.getResume(userId);
+          if (resume) {
+            setHasResume(true);
+            // If viewing someone else, populate the "Profile" view with data from their Resume
+            if (!isOwnProfile) {
+              setLocalData({
+                position: resume.title,
+                bio: resume.summary,
+                location: resume.city,
+                experience: resume.experience?.[0]?.company || '', // Simplified for profile view
+                skills: resume.skills || []
+              });
+            }
+          } else {
+            setHasResume(false);
+          }
+        } catch (e) {
+          console.warn('Failed to load resume or no resume exists', e);
+          setHasResume(false);
+        }
+      }
+
     } catch (err: any) {
       setError(err?.message || 'Не удалось загрузить профиль');
     } finally {
@@ -416,19 +460,23 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all"
-                >
-                  <Camera className="h-5 w-5" />
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="hidden"
-                />
+                {isOwnProfile && (
+                  <>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all"
+                    >
+                      <Camera className="h-5 w-5" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                  </>
+                )}
               </div>
 
               {/* Name and Position */}
@@ -483,28 +531,32 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
               <div className="flex gap-2 pt-4">
                 {!isEditing ? (
                   <>
-                    <Button
-                      onClick={handleEditToggle}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Редактировать
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowPasswordChange(!showPasswordChange)}
-                    >
-                      <Lock className="h-4 w-4 mr-2" />
-                      Пароль
-                    </Button>
-                    {user.role === 'admin' && onAdminClick && (
-                      <Button
-                        variant="destructive"
-                        onClick={onAdminClick}
-                        className="bg-red-600 hover:bg-red-700 text-white ml-2"
-                      >
-                        Админ
-                      </Button>
+                    {isOwnProfile && (
+                      <>
+                        <Button
+                          onClick={handleEditToggle}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Редактировать
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowPasswordChange(!showPasswordChange)}
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          Пароль
+                        </Button>
+                        {user.role === 'admin' && onAdminClick && (
+                          <Button
+                            variant="destructive"
+                            onClick={onAdminClick}
+                            className="bg-red-600 hover:bg-red-700 text-white ml-2"
+                          >
+                            Админ
+                          </Button>
+                        )}
+                      </>
                     )}
                   </>
                 ) : (
@@ -531,8 +583,8 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
           </div>
         </div>
 
-        {/* Password Change Section */}
-        {showPasswordChange && (
+        {/* Password Change Section - Only Owner */}
+        {showPasswordChange && isOwnProfile && (
           <div className="px-4 sm:px-6 lg:px-8 mt-6">
             <Card className="shadow-sm">
               <CardContent className="p-6">
@@ -670,29 +722,49 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                     </div>
                   </div>
 
-                  {/* Download Resume Button */}
-                  <Button
-                    variant="outline"
-                    className="w-full mt-6"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Скачать резюме
-                  </Button>
+                  {/* Resume Actions */}
+                  {user.role === 'user' && (
+                    hasResume ? (
+                      <Button
+                        variant="outline"
+                        className="w-full mt-6"
+                        onClick={onShowResume}
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Показать резюме
+                      </Button>
+                    ) : (
+                      isOwnProfile && (
+                        <Button
+                          className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white"
+                          onClick={onCreateResume}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Создать резюме
+                        </Button>
+                      )
+                    )
+                  )}
 
-                  {/* Logout Button */}
-                  <Button
-                    variant="outline"
-                    onClick={handleLogout}
-                    className="w-full mt-3 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
-                  >
-                    Выйти из аккаунта
-                  </Button>
+                  {/* Logout Button - Only Owner */}
+                  {isOwnProfile && (
+                    <Button
+                      variant="outline"
+                      onClick={handleLogout}
+                      className="w-full mt-3 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
+                    >
+                      Выйти из аккаунта
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
             {/* Right Column - About & Skills */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Debug Info - REMOVE BEFORE PRODUCTION */}
+
+
               {/* About Section */}
               <Card className="shadow-sm">
                 <CardContent className="p-6">
@@ -769,13 +841,19 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
               </Card>
             </div>
           </div>
-          <ApplicationsSection onJobClick={onJobClick} />
-          {(user.role === 'employer' || user.role === 'admin') && (
-            <EmployerApplicationsSection />
-          )}
-          <FavoritesSection onJobClick={onJobClick} />
         </div>
+
+        {isOwnProfile && (
+          <>
+            <ApplicationsSection onJobClick={onJobClick} />
+            {(user.role === 'employer' || user.role === 'admin') && (
+              <EmployerApplicationsSection />
+            )}
+            <FavoritesSection onJobClick={onJobClick} />
+          </>
+        )}
       </div>
     </div>
+
   );
 }
