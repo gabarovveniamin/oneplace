@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import database from '../config/database';
+import { socketManager } from '../socket';
 
 // Helper to create notification (internal use)
 export const createNotificationInternal = (userId: string, type: string, title: string, message: string, relatedId?: string) => {
@@ -9,8 +10,21 @@ export const createNotificationInternal = (userId: string, type: string, title: 
             INSERT INTO notifications (user_id, type, title, message, related_id)
             VALUES (?, ?, ?, ?, ?)
         `);
-        stmt.run(userId, type, title, message, relatedId);
+        const result = stmt.run(userId, type, title, message, relatedId);
+
+        // Push notification via Socket.IO
+        socketManager.sendToUser(userId, 'notification', {
+            id: result.lastInsertRowid.toString(),
+            user_id: userId,
+            type,
+            title,
+            message,
+            related_id: relatedId,
+            is_read: 0,
+            created_at: new Date().toISOString()
+        });
     } catch (err) {
+        console.error('Failed to create notification or send via socket', err);
         // Silent fail for notifications to not break main flow
     }
 };

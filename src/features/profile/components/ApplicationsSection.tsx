@@ -9,24 +9,34 @@ interface ApplicationsSectionProps {
     onJobClick?: (job: Job) => void;
 }
 
+import { useSocket } from '../../../core/socket/SocketContext';
+
 export function ApplicationsSection({ onJobClick }: ApplicationsSectionProps) {
     const [applications, setApplications] = useState<Application[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const refreshApplications = async () => {
-        try {
-            const data = await applicationsApiService.getMyApplications();
-            setApplications(data);
-        } catch (error) {
-            console.error('Silent refresh failed', error);
-        }
-    };
+    const { socket } = useSocket();
 
     useEffect(() => {
         loadApplications();
-        const interval = setInterval(refreshApplications, 5000); // 5 sec poll
-        return () => clearInterval(interval);
     }, []);
+
+    // Listen for real-time status updates
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleStatusUpdate = (data: any) => {
+            if (data.type === 'application_status') {
+                console.log('🔄 Application status updated, refreshing list...');
+                loadApplications();
+            }
+        };
+
+        socket.on('notification', handleStatusUpdate);
+
+        return () => {
+            socket.off('notification', handleStatusUpdate);
+        };
+    }, [socket]);
 
     const loadApplications = async () => {
         try {
