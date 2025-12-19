@@ -11,6 +11,8 @@ import { notificationsApiService, Notification } from '../../../core/api/notific
 import { authApiService } from '../../../core/api/auth';
 import { cn } from '../../../shared/ui/components/utils';
 
+import { useSocket } from '../../../core/socket/SocketContext';
+
 interface NotificationsPopoverProps {
     onNavigateToProfile?: () => void;
 }
@@ -19,15 +21,31 @@ export function NotificationsPopover({ onNavigateToProfile }: NotificationsPopov
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
+    const { socket } = useSocket();
 
-    // Initial load and polling
+    // Initial load
     useEffect(() => {
         if (authApiService.isAuthenticated()) {
             loadNotifications();
-            const interval = setInterval(loadNotifications, 5000); // Poll every 5s
-            return () => clearInterval(interval);
         }
-    }, [isOpen]); // Reload when opened as well
+    }, []);
+
+    // Listen for real-time notifications
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewNotification = (notification: Notification) => {
+            console.log('📬 Real-time notification received:', notification);
+            setNotifications(prev => [notification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+        };
+
+        socket.on('notification', handleNewNotification);
+
+        return () => {
+            socket.off('notification', handleNewNotification);
+        };
+    }, [socket]);
 
     const loadNotifications = async () => {
         try {

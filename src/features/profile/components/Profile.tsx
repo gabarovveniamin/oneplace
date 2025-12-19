@@ -22,7 +22,8 @@ import {
   Edit2,
   User as UserIcon,
   ClipboardList,
-  Heart
+  Heart,
+  MessageSquare
 } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
 import { ApiError } from '../../../core/api';
@@ -33,6 +34,8 @@ import { Job } from "../../../shared/types/job";
 import { cn } from "../../../shared/ui/components/utils";
 
 import { resumeApiService } from '../../../core/api/resume';
+import { ChatWindow } from "../../chat/components/ChatWindow";
+import { Chat } from '../../../core/api/chat';
 
 interface ProfileProps {
   onBack: () => void;
@@ -41,6 +44,7 @@ interface ProfileProps {
   onCreateResume?: () => void;
   onShowResume?: () => void;
   userId?: string;
+  onChatOpen?: (chat: Chat) => void;
 }
 
 interface UserProfile {
@@ -55,7 +59,7 @@ interface UserProfile {
   lastLogin?: string;
 }
 
-export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onShowResume, userId }: ProfileProps) {
+export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onShowResume, userId, onChatOpen }: ProfileProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -535,6 +539,31 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
               <div className="flex gap-2 pt-4">
                 {!isEditing ? (
                   <>
+                    {/* Only show Message button if NOT own profile */}
+                    {!isOwnProfile && (
+                      <Button
+                        onClick={() => {
+                          if (user && onChatOpen) {
+                            onChatOpen({
+                              other_user_id: user.id,
+                              first_name: user.firstName,
+                              last_name: user.lastName,
+                              avatar: user.avatar || null,
+                              last_message: '',
+                              last_message_at: new Date().toISOString(),
+                              is_read: 1,
+                              sender_id: '',
+                              unread_count: 0
+                            });
+                          }
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Написать
+                      </Button>
+                    )}
+
                     {isOwnProfile && (
                       <>
                         <Button

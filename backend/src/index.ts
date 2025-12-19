@@ -19,6 +19,7 @@ import resumeRoutes from './routes/resume';
 import favoritesRoutes from './routes/favorites';
 import applicationRoutes from './routes/applications';
 import notificationRoutes from './routes/notifications';
+import chatRoutes from './routes/chat';
 import { resumeController } from './controllers/resumeController';
 import path from 'path';
 
@@ -93,6 +94,7 @@ app.use('/api/resumes', resumeRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -100,9 +102,17 @@ app.use(notFound);
 // Error handler
 app.use(errorHandler);
 
+import { socketManager } from './socket';
+import { createServer } from 'http';
+
+const server = createServer(app);
+
+// Initialize Socket.IO
+socketManager.init(server);
+
 // Start server
 const PORT = config.port;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${config.nodeEnv}`);
   console.log(`🔗 API URL: http://localhost:${PORT}/api`);

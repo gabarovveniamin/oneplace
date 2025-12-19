@@ -5,8 +5,12 @@ import "./index.css";
 
 import ErrorBoundary from "./ErrorBoundary";
 
+import { SocketProvider } from "./core/socket/SocketContext";
+
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
-    <App />
+    <SocketProvider>
+      <App />
+    </SocketProvider>
   </ErrorBoundary>
 );

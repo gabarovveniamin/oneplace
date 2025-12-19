@@ -22,11 +22,14 @@ interface EmployerApplicationsSectionProps {
     className?: string;
 }
 
+import { useSocket } from '../../../core/socket/SocketContext';
+
 export function EmployerApplicationsSection({ className }: EmployerApplicationsSectionProps) {
     const [applications, setApplications] = useState<Application[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const { socket } = useSocket();
 
     const loadApplications = async () => {
         try {
@@ -42,20 +45,27 @@ export function EmployerApplicationsSection({ className }: EmployerApplicationsS
         }
     };
 
-    const refreshApplications = async () => {
-        try {
-            const data = await applicationsApiService.getEmployerApplications();
-            setApplications(data);
-        } catch (err) {
-            console.error('Silent refresh failed', err);
-        }
-    };
-
     useEffect(() => {
         loadApplications();
-        const interval = setInterval(refreshApplications, 5000); // 5 sec poll
-        return () => clearInterval(interval);
     }, []);
+
+    // Listen for real-time new applications
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewApplication = (data: any) => {
+            if (data.type === 'new_application') {
+                console.log('🆕 New application received, refreshing list...');
+                loadApplications();
+            }
+        };
+
+        socket.on('notification', handleNewApplication);
+
+        return () => {
+            socket.off('notification', handleNewApplication);
+        };
+    }, [socket]);
 
     const handleStatusUpdate = async (appId: string, newStatus: string) => {
         try {
@@ -221,8 +231,8 @@ export function EmployerApplicationsSection({ className }: EmployerApplicationsS
                                             onClick={() => handleStatusUpdate(app.id, 'accepted')}
                                             disabled={actionLoading === app.id}
                                         >
-                                            <CheckCircle className="h-4 w-4 md:mr-2" />
-                                            <span className="hidden md:inline">Пригласить</span>
+                                            <CheckCircle className="h-4 w-4 mr-2" />
+                                            <span>Пригласить</span>
                                         </Button>
                                         <Button
                                             size="sm"
@@ -231,8 +241,8 @@ export function EmployerApplicationsSection({ className }: EmployerApplicationsS
                                             disabled={actionLoading === app.id}
                                             className="w-full md:w-auto"
                                         >
-                                            <XCircle className="h-4 w-4 md:mr-2" />
-                                            <span className="hidden md:inline">Отказать</span>
+                                            <XCircle className="h-4 w-4 mr-2" />
+                                            <span>Отказать</span>
                                         </Button>
                                     </>
                                 )}

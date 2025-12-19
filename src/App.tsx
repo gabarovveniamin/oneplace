@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Header, Hero, Footer } from './shared/ui/components';
+import { MessageSquare } from 'lucide-react';
 import {
   FilterTabs,
   JobsList,
@@ -7,8 +8,11 @@ import {
 } from './features/jobs/components';
 import { Profile, PostJob, ResumeViewer } from './features/profile/components';
 import { Registration, ExtendedResumeBuilder, AuthDialog } from './features/auth/components';
+import { ChatWindow } from './features/chat/components/ChatWindow';
+import { MessengerPopover } from './features/chat/components/MessengerPopover';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { Job, SearchFilters } from './shared/types/job';
+import { Chat } from './core/api/chat';
 import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
 
@@ -20,8 +24,8 @@ export default function App() {
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
   const [authDialogView, setAuthDialogView] = useState<'login' | 'register'>('login');
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
-
   const [viewTargetUserId, setViewTargetUserId] = useState<string | undefined>(undefined);
+  const [activeChat, setActiveChat] = useState<Chat | null>(null);
 
   // Используем хук для работы с вакансиями
   const {
@@ -234,6 +238,16 @@ export default function App() {
         currentUser={currentUser}
       />
 
+      {/* Chat Window - Global */}
+      {activeChat && (
+        <ChatWindow
+          userId={activeChat.other_user_id}
+          userName={`${activeChat.first_name} ${activeChat.last_name}`}
+          userAvatar={activeChat.avatar}
+          onClose={() => setActiveChat(null)}
+        />
+      )}
+
       {/* Основной контент */}
       <main className="flex-1">
         {currentView === 'home' && (
@@ -256,6 +270,7 @@ export default function App() {
         {currentView === 'profile' && (
           <Profile
             userId={viewTargetUserId}
+            onChatOpen={setActiveChat}
             onBack={() => {
               handleBackToHome();
               setViewTargetUserId(undefined);
@@ -318,17 +333,19 @@ export default function App() {
         )}
       </main>
 
-      {/* Quick Profile Access */}
-      {currentView === 'home' && (
+      {/* Quick Access - Messenger */}
+      {currentUser && (
         <div className="fixed bottom-6 right-6 z-40">
-          <button
-            onClick={handleProfileClick}
-            className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </button>
+          <MessengerPopover
+            onChatSelect={setActiveChat}
+            side="top"
+            align="end"
+            customTrigger={
+              <div className="bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-full shadow-xl transition-all duration-200 hover:scale-110 active:scale-95">
+                <MessageSquare className="h-6 w-6" />
+              </div>
+            }
+          />
         </div>
       )}
 
