@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Clock, Building, CheckCircle } from "lucide-react";
 import { Job } from "../types";
 import { applicationsApiService } from '../../../core/api/applications';
 import { authApiService } from '../../../core/api/auth';
+import { ApiError } from '../../../core/api';
 
 interface JobDetailsProps {
   job: Job;
@@ -14,8 +15,8 @@ interface JobDetailsProps {
 }
 
 export function JobDetails({ job, onBack }: JobDetailsProps) {
-  const [isApplying, setIsApplying] = React.useState(false);
-  const [hasApplied, setHasApplied] = React.useState(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
 
   const skills = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Docker'];
   const requirements = [
@@ -37,11 +38,12 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
       await applicationsApiService.apply(job.id);
       setHasApplied(true);
     } catch (error: any) {
-      if (error.message && error.message.includes('already applied')) {
+      const apiError = error as ApiError;
+      if (apiError.message && apiError.message.includes('already applied')) {
         setHasApplied(true);
       } else {
-        console.error('Failed to apply:', error);
-        alert('Не удалось откликнуться: ' + (error.message || 'Unknown error'));
+        console.error('Failed to apply:', apiError);
+        alert('Не удалось откликнуться: ' + (apiError.message || 'Unknown error'));
       }
     } finally {
       setIsApplying(false);

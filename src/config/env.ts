@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 // Конфигурация приложения
 export const config = {
   api: {

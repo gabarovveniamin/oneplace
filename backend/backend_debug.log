@@ -82,3 +82,12 @@
 [2025-12-17T11:47:03.234Z] Resume search result: FOUND
 [2025-12-19T04:14:10.982Z] getResume called for user: 5a77e3d6506d5650055a61a1f35ba254
 [2025-12-19T04:14:10.983Z] Resume search result: FOUND
+[2025-12-19T04:57:08.016Z] getResumeByUserId called for userId: 5a77e3d6506d5650055a61a1f35ba254
+[2025-12-19T04:57:11.140Z] getResumeByUserId called for userId: 5a77e3d6506d5650055a61a1f35ba254
+[2025-12-19T04:57:15.223Z] getResumeByUserId called for userId: 5a77e3d6506d5650055a61a1f35ba254
+[2025-12-19T04:58:10.992Z] getResume called for user: 6fe7af8e60b321c946ee7090d10672cb
+[2025-12-19T04:58:10.993Z] Resume search result: NOT FOUND
+[2025-12-19T05:00:47.859Z] getResume called for user: 6fe7af8e60b321c946ee7090d10672cb
+[2025-12-19T05:00:47.861Z] Resume search result: FOUND
+[2025-12-19T05:01:20.887Z] getResumeByUserId called for userId: 6fe7af8e60b321c946ee7090d10672cb
+[2025-12-19T05:01:25.363Z] getResumeByUserId called for userId: 6fe7af8e60b321c946ee7090d10672cb

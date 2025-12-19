@@ -27,7 +27,6 @@ export function AuthDialog({
     }, [isOpen, defaultView]);
 
     const handleLoginSuccess = () => {
-        console.log('✅ Login successful, closing dialog');
         onSuccess?.();
         onClose();
         // Перезагружаем страницу для обновления UI с авторизованным пользователем
@@ -35,7 +34,6 @@ export function AuthDialog({
     };
 
     const handleRegistrationComplete = () => {
-        console.log('✅ Registration complete, closing dialog');
         onSuccess?.();
         onClose();
         // Перезагружаем страницу для обновления UI с авторизованным пользователем
@@ -58,7 +56,6 @@ export function AuthDialog({
                     onRegistrationComplete={handleRegistrationComplete}
                     onSwitchToLogin={() => setView('login')}
                     onResumeChoice={(type, user) => {
-                        console.log('Dialog: onResumeChoice called', type);
                         onClose();
                         if (onResumeChoice) {
                             onResumeChoice(type);

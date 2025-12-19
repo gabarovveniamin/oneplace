@@ -107,10 +107,9 @@ export class UserModel {
 
   // Обновление пользователя
   static async update(id: string, userData: UpdateUserData): Promise<User | null> {
-    console.log('UserModel.update called with:', { id, userData });
 
     const fields: string[] = [];
-    const values: any[] = [];
+    const values: (string | number | boolean | null)[] = [];
 
     if (userData.firstName !== undefined) {
       fields.push('first_name = ?');
@@ -142,19 +141,9 @@ export class UserModel {
        SET ${fields.join(', ')}
        WHERE id = ?`;
 
-    console.log('Executing SQL:', sql);
-    console.log('With values:', values);
-
     const result = await query(sql, values);
-    console.log('Update result rowCount:', result.rowCount);
 
-    if (result.rowCount === 0) {
-      console.error('ERROR: No rows updated! User ID might be wrong:', id);
-    }
-
-    const updatedUser = await this.findById(id);
-    console.log('Updated user:', updatedUser);
-    return updatedUser;
+    return this.findById(id);
   }
 
   // Обновление пароля
@@ -214,7 +203,7 @@ export class UserModel {
   }
 
   // Маппинг строки БД в объект User
-  private static mapRowToUser(row: any): User {
+  private static mapRowToUser(row: Record<string, any>): User {
     return {
       id: row.id,
       email: row.email,

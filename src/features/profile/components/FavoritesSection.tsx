@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Job } from '../../shared/types/job';
+import { Job } from '../../../shared/types/job';
 import { favoritesApiService } from '../../../core/api/favorites';
 import { JobsList } from '../../jobs/components/JobsList';
 import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/components/card";

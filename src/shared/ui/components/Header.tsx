@@ -223,7 +223,7 @@ export function Header({
                   {/* Регион */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Регион</label>
-                    <Select onValueChange={(value) => handleFilterChange('region', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('region', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите регион" />
                       </SelectTrigger>
@@ -250,7 +250,7 @@ export function Header({
                   {/* Опыт работы */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Опыт работы</label>
-                    <Select onValueChange={(value) => handleFilterChange('experience', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('experience', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите опыт" />
                       </SelectTrigger>
@@ -268,7 +268,7 @@ export function Header({
                   {/* Тип занятости */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Тип занятости</label>
-                    <Select onValueChange={(value) => handleFilterChange('employmentType', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('employmentType', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите тип" />
                       </SelectTrigger>
@@ -286,7 +286,7 @@ export function Header({
                   {/* Образование */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Образование</label>
-                    <Select onValueChange={(value) => handleFilterChange('education', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('education', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите образование" />
                       </SelectTrigger>
@@ -304,7 +304,7 @@ export function Header({
                   {/* Зарплата */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Зарплата от</label>
-                    <Select onValueChange={(value) => handleFilterChange('salaryFrom', parseInt(value))}>
+                    <Select onValueChange={(value: string) => handleFilterChange('salaryFrom', parseInt(value))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите зарплату" />
                       </SelectTrigger>
@@ -326,7 +326,7 @@ export function Header({
                   {/* Специализация */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Специализация</label>
-                    <Select onValueChange={(value) => handleFilterChange('specialization', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('specialization', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите специализацию" />
                       </SelectTrigger>
@@ -353,7 +353,7 @@ export function Header({
                   {/* График работы */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">График работы</label>
-                    <Select onValueChange={(value) => handleFilterChange('schedule', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('schedule', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите график" />
                       </SelectTrigger>

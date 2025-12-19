@@ -16,17 +16,21 @@ import {
   AlertCircle,
   CheckCircle,
   Save,
-  Download,
   Plus,
   X,
   Lock,
-  Edit2
+  Edit2,
+  User as UserIcon,
+  ClipboardList,
+  Heart
 } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
+import { ApiError } from '../../../core/api';
 import { FavoritesSection } from "./FavoritesSection";
 import { ApplicationsSection } from "./ApplicationsSection";
 import { EmployerApplicationsSection } from "./EmployerApplicationsSection";
 import { Job } from "../../../shared/types/job";
+import { cn } from "../../../shared/ui/components/utils";
 
 import { resumeApiService } from '../../../core/api/resume';
 
@@ -92,6 +96,7 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<'info' | 'applications' | 'favorites'>('info');
 
   useEffect(() => {
     loadProfile();
@@ -145,7 +150,8 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
       }
 
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить профиль');
+      const apiError = err as ApiError;
+      setError(apiError.message || 'Не удалось загрузить профиль');
     } finally {
       setLoading(false);
     }
@@ -200,15 +206,13 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
       const cleanedPhone = editedData.phone.replace(/\D/g, '');
 
       // Only send fields that backend accepts
-      const updateData: any = {
+      const updateData: Record<string, string> = {
         firstName: editedData.firstName.trim(),
         lastName: editedData.lastName.trim(),
         phone: cleanedPhone // Send only digits
       };
 
-      console.log('Sending update data:', updateData);
       const updatedProfile = await authApiService.updateProfile(updateData);
-      console.log('Updated profile:', updatedProfile);
 
       setUser(updatedProfile);
       setIsEditing(false);
@@ -221,8 +225,8 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
       setSuccess('✅ Профиль успешно сохранен!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      console.error('Error saving profile:', err);
-      setError(err?.response?.data?.message || err?.message || 'Не удалось сохранить профиль');
+      const apiError = err as ApiError;
+      setError(apiError.message || 'Не удалось сохранить профиль');
     } finally {
       setSaving(false);
     }
@@ -642,218 +646,246 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
           </div>
         )}
 
-        {/* Main Content Grid */}
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Left Column - Contact Info */}
-            <div className="lg:col-span-1 space-y-6">
-              <Card className="shadow-sm">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-6">
-                    Контактная информация
-                  </h2>
+        {/* Tab Navigation */}
+        <div className="px-4 sm:px-6 lg:px-8 mt-8">
+          <div className="flex overflow-x-auto border-b scrollbar-hide">
+            <button
+              onClick={() => setActiveSection('info')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                activeSection === 'info'
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+              )}
+            >
+              <UserIcon className="h-4 w-4" />
+              Профиль
+            </button>
 
-                  <div className="space-y-5">
-                    {/* Email */}
-                    <div className="flex items-start gap-3">
-                      <Mail className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-muted-foreground">Email</p>
-                        <p className="text-sm break-all">{user.email}</p>
-                      </div>
-                    </div>
-
-                    {/* Phone */}
-                    <div className="flex items-start gap-3">
-                      <Phone className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Телефон</p>
-                        {isEditing ? (
-                          <Input
-                            type="tel"
-                            placeholder="+7 (___) ___-__-__ *"
-                            value={editedData.phone}
-                            onChange={handlePhoneChange}
-                            className="h-9"
-                            required
-                          />
-                        ) : (
-                          <p className="text-sm">{user.phone || 'Не указан'}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Location */}
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Местоположение</p>
-                        {isEditing ? (
-                          <Input
-                            placeholder="Москва, Россия *"
-                            value={localData.location}
-                            onChange={(e) => setLocalData({ ...localData, location: e.target.value })}
-                            className="h-9"
-                            required
-                          />
-                        ) : (
-                          <p className="text-sm">{localData.location || 'Не указано'}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Experience */}
-                    <div className="flex items-start gap-3">
-                      <Briefcase className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Опыт работы</p>
-                        {isEditing ? (
-                          <Input
-                            placeholder="5 лет *"
-                            value={localData.experience}
-                            onChange={(e) => setLocalData({ ...localData, experience: e.target.value })}
-                            className="h-9"
-                            required
-                          />
-                        ) : (
-                          <p className="text-sm">{localData.experience || 'Не указано'}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Resume Actions */}
-                  {user.role === 'user' && (
-                    hasResume ? (
-                      <Button
-                        variant="outline"
-                        className="w-full mt-6"
-                        onClick={onShowResume}
-                      >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Показать резюме
-                      </Button>
-                    ) : (
-                      isOwnProfile && (
-                        <Button
-                          className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={onCreateResume}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Создать резюме
-                        </Button>
-                      )
-                    )
+            {isOwnProfile && (
+              <>
+                <button
+                  onClick={() => setActiveSection('applications')}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                    activeSection === 'applications'
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                   )}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  {user.role === 'employer' ? 'Отклики на вакансии' : 'Мои отклики'}
+                </button>
 
-                  {/* Logout Button - Only Owner */}
-                  {isOwnProfile && (
-                    <Button
-                      variant="outline"
-                      onClick={handleLogout}
-                      className="w-full mt-3 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
-                    >
-                      Выйти из аккаунта
-                    </Button>
+                <button
+                  onClick={() => setActiveSection('favorites')}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                    activeSection === 'favorites'
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
                   )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column - About & Skills */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Debug Info - REMOVE BEFORE PRODUCTION */}
-
-
-              {/* About Section */}
-              <Card className="shadow-sm">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">О себе</h2>
-                  {isEditing ? (
-                    <Textarea
-                      placeholder="Опытный frontend разработчик с 5-летним стажем. Специализируюсь на создании современных веб-приложений с использованием React и TypeScript..."
-                      value={localData.bio}
-                      onChange={(e) => setLocalData({ ...localData, bio: e.target.value })}
-                      rows={6}
-                      className="resize-none"
-                    />
-                  ) : (
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {localData.bio || 'Информация не указана'}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Skills Section */}
-              <Card className="shadow-sm">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">Навыки</h2>
-
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {localData.skills.map((skill, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 px-4 py-2 text-sm font-medium"
-                      >
-                        {skill}
-                        {isEditing && (
-                          <button
-                            onClick={() => handleRemoveSkill(skill)}
-                            className="ml-2 hover:text-red-600"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </Badge>
-                    ))}
-                    {localData.skills.length === 0 && (
-                      <p className="text-muted-foreground text-sm">
-                        {isEditing ? 'Добавьте свои навыки' : 'Навыки не указаны'}
-                      </p>
-                    )}
-                  </div>
-
-                  {isEditing && (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="React, TypeScript, Node.js..."
-                        value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddSkill();
-                          }
-                        }}
-                      />
-                      <Button
-                        onClick={handleAddSkill}
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                >
+                  <Heart className="h-4 w-4" />
+                  Избранное
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {isOwnProfile && (
-          <>
-            <ApplicationsSection onJobClick={onJobClick} />
-            {(user.role === 'employer' || user.role === 'admin') && (
-              <EmployerApplicationsSection />
-            )}
+        {/* Main Content Area */}
+        <div className="px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {activeSection === 'info' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column - Contact Details */}
+              <div className="space-y-6">
+                <Card className="shadow-sm">
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Контактная информация</h2>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center text-blue-600">
+                          <Mail className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-50">Email</p>
+                          <p className="font-medium">{user.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+                        <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/10 flex items-center justify-center text-green-600">
+                          <Phone className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-50">Телефон</p>
+                          {isEditing ? (
+                            <Input
+                              value={editedData.phone}
+                              onChange={handlePhoneChange}
+                              placeholder="+7 (___) ___-__-__"
+                              className="h-8 mt-1"
+                            />
+                          ) : (
+                            <p className="font-medium text-foreground">{user.phone || 'Не указан'}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+                        <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/10 flex items-center justify-center text-orange-600">
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-50">Локация</p>
+                          {isEditing ? (
+                            <Input
+                              value={localData.location}
+                              onChange={(e) => setLocalData({ ...localData, location: e.target.value })}
+                              placeholder="Город"
+                              className="h-8 mt-1"
+                            />
+                          ) : (
+                            <p className="font-medium text-foreground">{localData.location || 'Не указана'}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 space-y-3">
+                      {user.role === 'user' && !userId && (
+                        <>
+                          {!hasResume ? (
+                            <Button
+                              onClick={onCreateResume}
+                              className="w-full bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Создать резюме
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              onClick={onShowResume}
+                              className="w-full"
+                            >
+                              <Briefcase className="h-4 w-4 mr-2" />
+                              Посмотреть резюме
+                            </Button>
+                          )}
+                        </>
+                      )}
+
+                      {isOwnProfile && (
+                        <Button
+                          variant="outline"
+                          onClick={handleLogout}
+                          className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
+                        >
+                          Выйти из аккаунта
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Column - About & Skills */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* About Section */}
+                <Card className="shadow-sm">
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">О себе</h2>
+                    {isEditing ? (
+                      <Textarea
+                        placeholder="Расскажите о себе, своих интересах или опыте работы..."
+                        value={localData.bio}
+                        onChange={(e) => setLocalData({ ...localData, bio: e.target.value })}
+                        rows={6}
+                        className="resize-none"
+                      />
+                    ) : (
+                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                        {localData.bio || 'Информация не указана'}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Skills Section */}
+                <Card className="shadow-sm">
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Навыки</h2>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {localData.skills.length > 0 ? (
+                        localData.skills.map((skill, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-200 px-4 py-2 text-sm font-medium"
+                          >
+                            {skill}
+                            {isEditing && (
+                              <button
+                                onClick={() => handleRemoveSkill(skill)}
+                                className="ml-2 hover:text-red-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-muted-foreground text-sm">
+                          {isEditing ? 'Добавьте свои навыки' : 'Навыки не указаны'}
+                        </p>
+                      )}
+                    </div>
+
+                    {isEditing && (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Добавить навык (напр. React, Python)"
+                          value={newSkill}
+                          onChange={(e) => setNewSkill(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddSkill();
+                            }
+                          }}
+                        />
+                        <Button
+                          onClick={handleAddSkill}
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'applications' && isOwnProfile && (
+            <div className="space-y-6">
+              {user.role === 'employer' || user.role === 'admin' ? (
+                <EmployerApplicationsSection className="mt-0" />
+              ) : (
+                <ApplicationsSection onJobClick={onJobClick} />
+              )}
+            </div>
+          )}
+
+          {activeSection === 'favorites' && isOwnProfile && (
             <FavoritesSection onJobClick={onJobClick} />
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
-
   );
 }

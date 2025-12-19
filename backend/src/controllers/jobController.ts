@@ -3,6 +3,7 @@ import { body, query } from 'express-validator';
 import { JobModel, Job, JobFilters } from '../models/Job';
 import { JobModelMethods } from '../models/JobMethods';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest } from '../middleware/auth';
 
 // Validation rules
 export const createJobValidation = [
@@ -173,8 +174,9 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
     ];
 
     exactMatchFields.forEach(field => {
-      if (req.query[field]) {
-        (filters as any)[field] = req.query[field] as string;
+      const value = req.query[field];
+      if (value) {
+        (filters as Record<string, any>)[field] = value as string;
       }
     });
 
@@ -212,9 +214,9 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
 };
 
 // Create new job
-export const createJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createJob = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
 
     if (!user) {
       res.status(401).json({
@@ -240,9 +242,9 @@ export const createJob = async (req: Request, res: Response, next: NextFunction)
 };
 
 // Update job
-export const updateJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateJob = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     const job = await JobModel.findById(req.params.id);
 
     if (!job) {
@@ -254,7 +256,7 @@ export const updateJob = async (req: Request, res: Response, next: NextFunction)
     }
 
     // Check if user owns the job or is admin
-    if (job.postedBy !== user.id && user.role !== 'admin') {
+    if (!user || (job.postedBy !== user.id && user.role !== 'admin')) {
       res.status(403).json({
         success: false,
         message: 'Not authorized to update this job',
@@ -283,9 +285,9 @@ export const updateJob = async (req: Request, res: Response, next: NextFunction)
 };
 
 // Delete job
-export const deleteJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deleteJob = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
     const job = await JobModel.findById(req.params.id);
 
     if (!job) {
@@ -297,7 +299,7 @@ export const deleteJob = async (req: Request, res: Response, next: NextFunction)
     }
 
     // Check if user owns the job or is admin
-    if (job.postedBy !== user.id && user.role !== 'admin') {
+    if (!user || (job.postedBy !== user.id && user.role !== 'admin')) {
       res.status(403).json({
         success: false,
         message: 'Not authorized to delete this job',
@@ -371,9 +373,13 @@ export const getJobsStats = async (req: Request, res: Response, next: NextFuncti
 };
 
 // Get user's jobs
-export const getUserJobs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getUserJobs = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const user = (req as any).user;
+    const user = req.user;
+    if (!user) {
+      res.status(401).json({ success: false, message: 'Not authenticated' });
+      return;
+    }
     const userId = req.params.userId || user.id;
 
     // Check if user is requesting their own jobs or is admin

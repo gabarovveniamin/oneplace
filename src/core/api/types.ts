@@ -15,11 +15,6 @@ export interface PaginatedResponse<T> {
   };
 }
 
-export interface ApiError {
-  message: string;
-  code?: string;
-  details?: any;
-}
 
 // Типы для вакансий
 export interface CreateJobRequest {
@@ -72,6 +67,7 @@ export interface JobResponse {
   workHours?: number;
   workFormat?: 'office' | 'remote' | 'hybrid';
   postedBy: string;
+  postedAt: string;
   isActive: boolean;
   isFeatured: boolean;
   views: number;

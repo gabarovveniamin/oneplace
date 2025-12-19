@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/com
 import { Badge } from "../../../shared/ui/components/badge";
 import { Separator } from "../../../shared/ui/components/separator";
 import { resumeApiService, ResumeData } from '../../../core/api/resume';
-import { authApiService } from '../../../core/api/auth';
+import { authApiService, UserResponse } from '../../../core/api/auth';
 
 interface ResumeViewerProps {
     onBack: () => void;
@@ -35,7 +35,7 @@ export function ResumeViewer({ onBack, onEdit, userId, readOnly = false }: Resum
     const [resume, setResume] = useState<ResumeData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [userProfile, setUserProfile] = useState<any>(null); // For avatar and name if not in resume
+    const [userProfile, setUserProfile] = useState<UserResponse | null>(null); // For avatar and name if not in resume
 
     useEffect(() => {
         const loadData = async () => {

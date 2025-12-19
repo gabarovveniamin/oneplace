@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { resumeApiService, ResumeData, Experience, Education, Project } from '../../../core/api/resume';
 import { authApiService } from '../../../core/api/auth';
+import { ApiError } from '../../../core/api';
 
 interface ExtendedResumeBuilderProps {
   onBack: () => void;
@@ -89,7 +90,7 @@ export function ExtendedResumeBuilder({ onBack, onComplete }: ExtendedResumeBuil
     'Docker', 'AWS', 'Git', 'Photoshop', 'Figma'
   ];
 
-  const handleInputChange = (field: keyof ResumeData, value: any) => {
+  const handleInputChange = <K extends keyof ResumeData>(field: K, value: ResumeData[K]) => {
     setResumeData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -186,8 +187,9 @@ export function ExtendedResumeBuilder({ onBack, onComplete }: ExtendedResumeBuil
       alert('Резюме успешно сохранено!'); // Explicit feedback
       onComplete();
     } catch (err: any) {
-      console.error('Failed to save resume', err);
-      const message = err.message || 'Не удалось сохранить резюме. Пожалуйста, попробуйте снова.';
+      const apiError = err as ApiError;
+      console.error('Failed to save resume', apiError);
+      const message = apiError.message || 'Не удалось сохранить резюме. Пожалуйста, попробуйте снова.';
       setError(message);
       alert(message);
     } finally {

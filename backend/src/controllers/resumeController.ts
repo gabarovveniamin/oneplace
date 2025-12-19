@@ -1,22 +1,17 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import { ResumeModel } from '../models/Resume';
-import fs from 'fs';
-import path from 'path';
-
-const logToFile = (message: string) => {
-    const logPath = path.resolve(process.cwd(), 'backend_debug.log');
-    const timestamp = new Date().toISOString();
-    fs.appendFileSync(logPath, `[${timestamp}] ${message}\n`);
-};
 
 export const resumeController = {
-    getResume: async (req: Request, res: Response) => {
+    getResume: async (req: AuthRequest, res: Response) => {
         try {
-            const userId = (req as any).user.id;
-            logToFile(`getResume called for user: ${userId}`);
+            const userId = req.user?.id;
+            if (!userId) {
+                res.status(401).json({ success: false, message: 'Not authenticated' });
+                return;
+            }
 
             const resume = await ResumeModel.findByUserId(userId);
-            logToFile(`Resume search result: ${resume ? 'FOUND' : 'NOT FOUND'}`);
 
             if (!resume) {
                 res.status(404).json({ success: false, message: 'Резюме не найдено' });
@@ -24,10 +19,7 @@ export const resumeController = {
             }
 
             res.json({ success: true, data: resume });
-        } catch (error: any) {
-            const errorMessage = error?.message || 'Unknown error';
-            logToFile(`Get resume error: ${errorMessage}\nStack: ${error?.stack}`);
-            console.error('Get resume error:', error);
+        } catch (err) {
             res.status(500).json({ success: false, message: 'Ошибка при получении резюме' });
         }
     },
@@ -35,7 +27,6 @@ export const resumeController = {
     getResumeByUserId: async (req: Request, res: Response) => {
         try {
             const { userId } = req.params;
-            logToFile(`getResumeByUserId called for userId: ${userId}`);
 
             const resume = await ResumeModel.findByUserId(userId);
 
@@ -45,16 +36,18 @@ export const resumeController = {
             }
 
             res.json({ success: true, data: resume });
-        } catch (error: any) {
-            console.error('Get resume by id error:', error);
+        } catch (err) {
             res.status(500).json({ success: false, message: 'Ошибка при получении резюме пользователя' });
         }
     },
 
-    updateResume: async (req: Request, res: Response) => {
+    updateResume: async (req: AuthRequest, res: Response) => {
         try {
-            const userId = (req as any).user.id;
-            console.log('Update resume requested for user:', userId);
+            const userId = req.user?.id;
+            if (!userId) {
+                res.status(401).json({ success: false, message: 'Not authenticated' });
+                return;
+            }
             const {
                 title,
                 city,
@@ -81,8 +74,7 @@ export const resumeController = {
             });
 
             res.json({ success: true, data: resume });
-        } catch (error: any) {
-            console.error('Update resume error:', error);
+        } catch (err) {
             res.status(500).json({ success: false, message: 'Ошибка при сохранении резюме' });
         }
     }
