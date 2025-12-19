@@ -5,6 +5,7 @@ import { Input } from "../../../shared/ui/components/input";
 import { Label } from "../../../shared/ui/components/label";
 import { ArrowLeft, Mail, Lock, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
+import { ApiError } from '../../../core/api';
 import { Alert, AlertDescription } from '../../../shared/ui/components/alert';
 
 interface LoginProps {
@@ -68,22 +69,21 @@ export function Login({ onBack, onLoginSuccess, onSwitchToRegister }: LoginProps
         setError(null);
 
         try {
-            const response = await authApiService.login({
+            await authApiService.login({
                 email: formData.email.trim(),
                 password: formData.password
             });
 
-            console.log('✅ Вход успешен:', response);
-
             // Вызываем колбэк успешного входа
             onLoginSuccess();
         } catch (err: any) {
-            console.error('❌ Ошибка входа:', err);
+            const apiError = err as ApiError;
+            console.error('❌ Ошибка входа:', apiError);
 
             // Обрабатываем ошибки валидации с бэкенда
-            if (err?.details?.errors) {
+            if (apiError.details?.errors) {
                 const backendErrors: Record<string, string> = {};
-                err.details.errors.forEach((error: any) => {
+                apiError.details.errors.forEach((error: any) => {
                     const field = error.param || error.field;
                     if (field) {
                         backendErrors[field] = error.msg || error.message;
@@ -91,7 +91,7 @@ export function Login({ onBack, onLoginSuccess, onSwitchToRegister }: LoginProps
                 });
                 setErrors(backendErrors);
             } else {
-                setError(err?.message || 'Неверный email или пароль');
+                setError(apiError.message || 'Неверный email или пароль');
             }
         } finally {
             setLoading(false);

@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import * as React from 'react';
+import { useState, useEffect } from 'react';
 import { Header, Hero, Footer } from './shared/ui/components';
 import {
   FilterTabs,
@@ -37,7 +36,7 @@ export default function App() {
   } = useJobs();
 
   // Handle hash-based navigation
-  React.useEffect(() => {
+  useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
       if (hash === '#register') {
@@ -90,6 +89,8 @@ export default function App() {
   };
 
   const handleProfileClick = () => {
+    setViewTargetUserId(undefined);
+    window.location.hash = '';
     setCurrentView('profile');
   };
 
@@ -98,12 +99,8 @@ export default function App() {
   };
 
   const handleRegistrationComplete = (choice: 'basic' | 'extended', explicitUser?: UserResponse) => {
-    console.log('handleRegistrationComplete', { choice, explicitUser });
-
     // Используем переданного пользователя или получаем из хранилища
     const user = explicitUser || authApiService.getCurrentUser();
-
-    console.log('Resolved user:', user);
 
     if (user) {
       setCurrentUser(user);
@@ -115,7 +112,6 @@ export default function App() {
           setCurrentView('profile');
         } else {
           // Если "Настроить" (расширенное) - в конструктор
-          console.log('Navigating to resume-builder');
           setCurrentView('resume-builder');
         }
       }
@@ -170,7 +166,7 @@ export default function App() {
   };
 
   // Синхронизируем поисковое поле с фильтрами при загрузке
-  React.useEffect(() => {
+  useEffect(() => {
     if (searchFilters.keyword && searchFilters.keyword !== searchValue) {
       setSearchValue(searchFilters.keyword);
     } else if (!searchFilters.keyword && searchValue) {
@@ -178,31 +174,8 @@ export default function App() {
     }
   }, [searchFilters.keyword]);
 
-  // Handle hash-based navigation
-  React.useEffect(() => {
-    const handleHashChange = () => {
-      if (window.location.hash === '#register') {
-        setCurrentView('register');
-      } else if (window.location.hash === '#post-job') {
-        const user = authApiService.getCurrentUser();
-        if (user && (user.role === 'employer' || user.role === 'admin')) {
-          setCurrentView('post-job');
-        } else {
-          // If not authorized, redirect to home
-          window.location.hash = '';
-          setCurrentView('home');
-        }
-      }
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    handleHashChange(); // Check initial hash
-
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
   // Load current user from localStorage
-  React.useEffect(() => {
+  useEffect(() => {
     const user = authApiService.getCurrentUser();
     if (user) {
       setCurrentUser(user);
@@ -210,7 +183,7 @@ export default function App() {
   }, []);
 
   // Handle theme persistence and application
-  React.useEffect(() => {
+  useEffect(() => {
     // Load saved theme preference
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -224,7 +197,7 @@ export default function App() {
     }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Apply theme to document
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -368,7 +341,6 @@ export default function App() {
         onClose={() => setIsAuthDialogOpen(false)}
         defaultView={authDialogView}
         onResumeChoice={(choice) => {
-          console.log('App: AuthDialog returned resume choice:', choice);
           setIsAuthDialogOpen(false);
           const user = authApiService.getCurrentUser();
           setCurrentUser(user);

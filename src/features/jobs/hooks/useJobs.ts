@@ -66,7 +66,7 @@ export function useJobs() {
 
     const result = await fetchJobs(params);
     if (result) {
-      setJobs(result.data);
+      setJobs(result.data as Job[]);
       setPagination(result.pagination);
     }
   }, [activeFilter, pagination.page, pagination.limit, fetchJobs]);
@@ -82,7 +82,7 @@ export function useJobs() {
 
     const result = await searchJobs(searchParams);
     if (result) {
-      setJobs(result.data);
+      setJobs(result.data as Job[]);
       setPagination(result.pagination);
     }
   }, [activeFilter, pagination.page, pagination.limit, searchJobs]);
@@ -117,7 +117,7 @@ export function useJobs() {
     if (result) {
       // Обновляем вакансию в списке
       setJobs(prev => prev.map(job =>
-        job.id === jobData.id ? { ...job, ...result } : job
+        job.id === jobData.id ? { ...job, ...result } as Job : job
       ));
       return result as Job;
     }
@@ -158,7 +158,7 @@ export function useJobs() {
         };
         const result = await jobsApiService.searchJobs(params);
         if (result) {
-          setJobs(result.data);
+          setJobs(result.data as Job[]);
           setPagination(result.pagination);
         }
       } else {
@@ -170,7 +170,7 @@ export function useJobs() {
         };
         const result = await jobsApiService.getJobs(params);
         if (result) {
-          setJobs(result.data);
+          setJobs(result.data as Job[]);
           setPagination(result.pagination);
         }
       }

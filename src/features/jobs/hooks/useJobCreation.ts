@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { jobsApiService } from '../../../core/api/jobs';
-import { CreateJobRequest, JobResponse, ApiError } from '../../../core/api/types';
+import { CreateJobRequest, JobResponse } from '../../../core/api/types';
+import { ApiError } from '../../../core/api';
 
 export interface UseJobCreationReturn {
   createJob: (jobData: CreateJobRequest) => Promise<JobResponse>;
@@ -25,13 +26,8 @@ export function useJobCreation(): UseJobCreationReturn {
       setSuccess(true);
       return response;
     } catch (err: any) {
-      const apiError: ApiError = {
-        message: err.response?.data?.message || err.message || 'Ошибка при создании вакансии',
-        code: err.response?.data?.code,
-        details: err.response?.data?.details
-      };
-      setError(apiError);
-      throw apiError;
+      setError(err as ApiError);
+      throw err;
     } finally {
       setIsCreating(false);
     }

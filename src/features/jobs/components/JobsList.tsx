@@ -2,6 +2,8 @@ import { JobCard } from "./JobCard";
 import { Job } from "../types";
 import { Skeleton } from "../../../shared/ui/components/skeleton";
 import { Alert, AlertDescription } from "../../../shared/ui/components/alert";
+import { Card, CardContent } from "../../../shared/ui/components/card";
+import { Button } from "../../../shared/ui/components/button";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { ApiError } from "../../../core/api";
 
@@ -16,6 +18,9 @@ import { useFavorites } from "../hooks/useFavorites";
 
 export function JobsList({ jobs = [], loading = false, error = null, onJobClick }: JobsListProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
+
+  // Defensive filtering: remove jobs with missing critical info to avoid "empty ads"
+  const validJobs = jobs.filter(job => job.title && job.company && job.salary);
 
   if (loading) {
     return (
@@ -71,24 +76,35 @@ export function JobsList({ jobs = [], loading = false, error = null, onJobClick 
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-foreground mb-2">
-          Найдено {jobs.length} предложений
+          Найдено {validJobs.length} предложений
         </h2>
         <p className="text-muted-foreground">
           Актуальные вакансии, подработки и проекты
         </p>
       </div>
 
-      {jobs.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-muted-foreground">
-            <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">Вакансии не найдены</h3>
-            <p>Попробуйте изменить параметры поиска или фильтры</p>
-          </div>
-        </div>
+      {validJobs.length === 0 ? (
+        <Card className="border-dashed py-12 px-6 bg-muted/20">
+          <CardContent className="flex flex-col items-center justify-center text-center">
+            <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mb-6">
+              <AlertCircle className="h-10 w-10 text-muted-foreground opacity-50" />
+            </div>
+            <h3 className="text-xl font-semibold mb-3">Вакансии не найдены</h3>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              К сожалению, по вашему запросу ничего не нашлось. Попробуйте сбросить фильтры или использовать другие ключевые слова.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => window.location.reload()}
+              className="hover:bg-blue-600 hover:text-white transition-colors"
+            >
+              Сбросить все фильтры
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
-          {jobs.map((job) => (
+          {validJobs.map((job) => (
             <JobCard
               key={job.id}
               job={job}

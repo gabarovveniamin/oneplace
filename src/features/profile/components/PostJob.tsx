@@ -9,13 +9,10 @@ import { Badge } from "../../../shared/ui/components/badge";
 import { Alert, AlertDescription } from "../../../shared/ui/components/alert";
 import { useJobCreation } from '../../jobs/hooks/useJobCreation';
 import { CreateJobRequest } from '../../../core/api/types';
-import { 
-  ArrowLeft, 
-  Building, 
-  MapPin, 
-  DollarSign, 
-  FileText, 
-  Tag,
+import {
+  ArrowLeft,
+  Building,
+  FileText,
   Upload,
   Plus,
   X,
@@ -83,8 +80,8 @@ export function PostJob({ onBack }: PostJobProps) {
   };
 
   const handleTagToggle = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
+    setSelectedTags(prev =>
+      prev.includes(tag)
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
@@ -127,12 +124,12 @@ export function PostJob({ onBack }: PostJobProps) {
       };
 
       await createJob(apiJobData);
-      
+
       // Успешное создание
       setTimeout(() => {
         onBack();
       }, 2000);
-      
+
     } catch (error) {
       console.error('Ошибка при создании вакансии:', error);
       // Ошибка уже обработана в хуке
@@ -177,7 +174,7 @@ export function PostJob({ onBack }: PostJobProps) {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="type">Тип работы *</Label>
-                  <Select value={jobData.type} onValueChange={(value) => handleInputChange('type', value)}>
+                  <Select value={jobData.type} onValueChange={(value: string) => handleInputChange('type', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите тип" />
                     </SelectTrigger>
@@ -325,7 +322,7 @@ export function PostJob({ onBack }: PostJobProps) {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="experience">Требуемый опыт</Label>
-                  <Select value={jobData.experience || ''} onValueChange={(value) => handleInputChange('experience', value)}>
+                  <Select value={jobData.experience} onValueChange={(value: string) => handleInputChange('experience', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите опыт" />
                     </SelectTrigger>
@@ -341,8 +338,7 @@ export function PostJob({ onBack }: PostJobProps) {
                 </div>
 
                 <div>
-                  <Label htmlFor="education">Образование</Label>
-                  <Select value={jobData.education || ''} onValueChange={(value) => handleInputChange('education', value)}>
+                  <Select value={jobData.education} onValueChange={(value: string) => handleInputChange('education', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите образование" />
                     </SelectTrigger>
@@ -361,7 +357,7 @@ export function PostJob({ onBack }: PostJobProps) {
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="workFormat">Формат работы</Label>
-                  <Select value={jobData.workFormat || ''} onValueChange={(value) => handleInputChange('workFormat', value)}>
+                  <Select value={jobData.workFormat || ''} onValueChange={(value: string) => handleInputChange('workFormat', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите формат" />
                     </SelectTrigger>
@@ -395,11 +391,10 @@ export function PostJob({ onBack }: PostJobProps) {
                       <button
                         key={tag}
                         onClick={() => handleTagToggle(tag)}
-                        className={`p-2 rounded-lg border-2 transition-all duration-200 text-sm ${
-                          selectedTags.includes(tag)
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
+                        className={`p-2 rounded-lg border-2 transition-all duration-200 text-sm ${selectedTags.includes(tag)
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 hover:border-gray-300'
+                          }`}
                       >
                         {tag}
                       </button>
@@ -547,15 +542,15 @@ export function PostJob({ onBack }: PostJobProps) {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={onBack}
             className="mb-4 text-gray-600 hover:text-blue-600"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Назад
           </Button>
-          
+
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -564,8 +559,8 @@ export function PostJob({ onBack }: PostJobProps) {
               <p className="text-gray-600">
                 Шаг {currentStep} из {totalSteps} - {
                   currentStep === 1 ? 'Основная информация' :
-                  currentStep === 2 ? 'Описание и требования' :
-                  'Контакты и публикация'
+                    currentStep === 2 ? 'Описание и требования' :
+                      'Контакты и публикация'
                 }
               </p>
             </div>
@@ -577,17 +572,16 @@ export function PostJob({ onBack }: PostJobProps) {
               const step = index + 1;
               const isActive = step === currentStep;
               const isCompleted = step < currentStep;
-              
+
               return (
                 <div key={step} className="flex items-center">
                   <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${
-                      isCompleted
-                        ? 'bg-green-500 border-green-500 text-white'
-                        : isActive
+                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200 ${isCompleted
+                      ? 'bg-green-500 border-green-500 text-white'
+                      : isActive
                         ? 'bg-blue-500 border-blue-500 text-white'
                         : 'bg-white border-gray-300 text-gray-500'
-                    }`}
+                      }`}
                   >
                     {isCompleted ? (
                       <CheckCircle className="h-5 w-5" />
@@ -597,9 +591,8 @@ export function PostJob({ onBack }: PostJobProps) {
                   </div>
                   {step < totalSteps && (
                     <div
-                      className={`w-16 h-1 mx-2 transition-all duration-200 ${
-                        step < currentStep ? 'bg-green-500' : 'bg-gray-300'
-                      }`}
+                      className={`w-16 h-1 mx-2 transition-all duration-200 ${step < currentStep ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
                     />
                   )}
                 </div>
@@ -613,7 +606,14 @@ export function PostJob({ onBack }: PostJobProps) {
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {error.message}
+              <div className="font-semibold">{error.message}</div>
+              {error.details?.errors && (
+                <ul className="mt-2 list-disc list-inside text-sm">
+                  {error.details.errors.map((err: { msg: string }, index: number) => (
+                    <li key={index}>{err.msg}</li>
+                  ))}
+                </ul>
+              )}
             </AlertDescription>
           </Alert>
         )}

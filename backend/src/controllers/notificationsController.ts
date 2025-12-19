@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import database from '../config/database';
 
-export const getNotifications = async (req: Request, res: Response): Promise<void> => {
+export const getNotifications = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -17,15 +18,13 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
             LIMIT 50
         `);
         const notifications = stmt.all(userId);
-        console.log(`🔔 GET /notifications for user ${userId}: Found ${notifications.length} items`);
         res.json({ data: notifications });
-    } catch (error) {
-        console.error('Error fetching notifications:', error);
+    } catch (err) {
         res.status(500).json({ message: 'Failed to fetch notifications' });
     }
 };
 
-export const markAsRead = async (req: Request, res: Response): Promise<void> => {
+export const markAsRead = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
     const { notificationIds } = req.body; // Array of IDs or 'all'
 
@@ -45,13 +44,12 @@ export const markAsRead = async (req: Request, res: Response): Promise<void> => 
         }
 
         res.json({ message: 'Notifications marked as read' });
-    } catch (error) {
-        console.error('Error marking notifications:', error);
+    } catch (err) {
         res.status(500).json({ message: 'Failed to update notifications' });
     }
 };
 
-export const deleteNotification = async (req: Request, res: Response): Promise<void> => {
+export const deleteNotification = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
     const { id } = req.params;
 
@@ -64,8 +62,7 @@ export const deleteNotification = async (req: Request, res: Response): Promise<v
         const stmt = database.prepare('DELETE FROM notifications WHERE id = ? AND user_id = ?');
         stmt.run(id, userId);
         res.json({ message: 'Notification deleted' });
-    } catch (error) {
-        console.error('Error deleting notification:', error);
+    } catch (err) {
         res.status(500).json({ message: 'Failed to delete notification' });
     }
 };

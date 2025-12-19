@@ -19,7 +19,7 @@ export interface AuthRequest extends Request {
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    
+
     if (!token) {
       res.status(401).json({
         success: false,
@@ -30,7 +30,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     const decoded = jwt.verify(token, config.jwt.secret) as { userId: string };
     const user = await UserModel.findById(decoded.userId);
-    
+
     if (!user) {
       res.status(401).json({
         success: false,
@@ -49,7 +49,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     req.user = user;
     next();
-  } catch (error) {
+  } catch (err: unknown) {
+    const error = err as Error;
+    // We only log critical errors, not just invalid tokens which are common
+    if (error.name !== 'JsonWebTokenError' && error.name !== 'TokenExpiredError') {
+      console.error('Auth verification error:', error.message);
+    }
     res.status(401).json({
       success: false,
       message: 'Invalid token.',
@@ -82,16 +87,16 @@ export const authorize = (...roles: string[]) => {
 export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    
+
     if (token) {
-    const decoded = jwt.verify(token, config.jwt.secret) as { userId: string };
-    const user = await UserModel.findById(decoded.userId);
-      
+      const decoded = jwt.verify(token, config.jwt.secret) as { userId: string };
+      const user = await UserModel.findById(decoded.userId);
+
       if (user && user.isActive) {
         req.user = user;
       }
     }
-    
+
     next();
   } catch (error) {
     // Continue without authentication

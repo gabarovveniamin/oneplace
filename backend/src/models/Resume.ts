@@ -81,10 +81,8 @@ export class ResumeModel {
     }
 
     static async createOrUpdate(data: CreateResumeData): Promise<Resume> {
-        console.log('ResumeModel.createOrUpdate called for userId:', data.userId);
         // Check if resume exists
         const existing = await this.findByUserId(data.userId);
-        console.log('Existing resume found:', existing ? 'YES' : 'NO');
 
         const skillsJson = JSON.stringify(data.skills);
         const expJson = JSON.stringify(data.experience);
@@ -125,9 +123,8 @@ export class ResumeModel {
         return this.mapRowToResume(result.rows[0]);
     }
 
-    private static mapRowToResume(row: any): Resume {
+    private static mapRowToResume(row: Record<string, any>): Resume {
         try {
-            console.log('Mapping row to resume:', row.id);
             return {
                 id: row.id,
                 userId: row.user_id,
@@ -144,10 +141,8 @@ export class ResumeModel {
                 createdAt: new Date(row.created_at),
                 updatedAt: new Date(row.updated_at),
             };
-        } catch (error) {
-            console.error('Error mapping resume row:', error);
-            console.error('Row data:', row);
-            throw error;
+        } catch (err) {
+            throw err;
         }
     }
 }

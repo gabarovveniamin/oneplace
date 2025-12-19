@@ -16,6 +16,7 @@ import {
 import { applicationsApiService, Application } from "../../../core/api/applications";
 import { cn } from "../../../shared/ui/components/utils";
 import { Alert, AlertDescription } from "../../../shared/ui/components/alert";
+import { ApiError } from "../../../core/api";
 
 interface EmployerApplicationsSectionProps {
     className?: string;
@@ -32,9 +33,10 @@ export function EmployerApplicationsSection({ className }: EmployerApplicationsS
             setLoading(true);
             const data = await applicationsApiService.getEmployerApplications();
             setApplications(data);
-        } catch (err) {
-            console.error('Failed to load employer applications', err);
-            setError('Не удалось загрузить отклики');
+        } catch (err: any) {
+            const apiError = err as ApiError;
+            console.error('Failed to load employer applications', apiError);
+            setError(apiError.message || 'Не удалось загрузить отклики');
         } finally {
             setLoading(false);
         }
@@ -60,11 +62,13 @@ export function EmployerApplicationsSection({ className }: EmployerApplicationsS
             setActionLoading(appId);
             await applicationsApiService.updateStatus(appId, newStatus);
             // Optimistic update
-            setApplications(prev => prev.map(app =>
+            setApplications((prev: Application[]) => prev.map((app: Application) =>
                 app.id === appId ? { ...app, status: newStatus as any } : app
             ));
-        } catch (err) {
-            console.error('Failed to update status', err);
+        } catch (err: any) {
+            const apiError = err as ApiError;
+            console.error('Failed to update status', apiError);
+            // Optionally could set a specific error for this row
         } finally {
             setActionLoading(null);
         }
@@ -142,7 +146,10 @@ export function EmployerApplicationsSection({ className }: EmployerApplicationsS
                         {/* Candidate Info */}
                         <div className="flex-1 space-y-3">
                             <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
+                                <div
+                                    className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => window.location.hash = `#profile/${app.user_id}`}
+                                >
                                     <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
                                         {app.avatar ? (
                                             <img src={app.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
@@ -215,7 +222,7 @@ export function EmployerApplicationsSection({ className }: EmployerApplicationsS
                                             disabled={actionLoading === app.id}
                                         >
                                             <CheckCircle className="h-4 w-4 md:mr-2" />
-                                            <span className="hidden md:inline">Принять</span>
+                                            <span className="hidden md:inline">Пригласить</span>
                                         </Button>
                                         <Button
                                             size="sm"

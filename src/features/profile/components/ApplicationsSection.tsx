@@ -79,7 +79,7 @@ export function ApplicationsSection({ onJobClick }: ApplicationsSectionProps) {
                                         location: app.location || 'Нет локации',
                                         logo: app.logo,
                                         description: 'Загрузка описания...',
-                                        requirements: [],
+                                        tags: [],
                                         type: 'Полная занятость',
                                         salary: 'По договоренности',
                                         postedAt: new Date(app.created_at).toLocaleDateString()

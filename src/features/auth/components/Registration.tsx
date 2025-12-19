@@ -5,6 +5,7 @@ import { Input } from "../../../shared/ui/components/input";
 import { Label } from "../../../shared/ui/components/label";
 import { ArrowLeft, User, Mail, Lock, AlertCircle, CheckCircle, Briefcase } from "lucide-react";
 import { authApiService, UserResponse } from '../../../core/api/auth';
+import { ApiError } from '../../../core/api';
 import { Alert, AlertDescription } from '../../../shared/ui/components/alert';
 import { cn } from '../../../shared/ui/components/utils';
 
@@ -99,8 +100,6 @@ export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin, 
         role: role
       });
 
-      console.log('✅ Регистрация успешна:', response);
-
       // Store user in state incase we need it for next step
       // Note: authApiService.register returns { user, token }
       // but response type is AuthResponse which has { user: UserResponse }
@@ -114,12 +113,12 @@ export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin, 
         setStep('resume-choice');
       }
     } catch (err: any) {
-      console.error('❌ Ошибка регистрации:', err);
+      const apiError = err as ApiError;
 
       // Обрабатываем ошибки валидации с бэкенда
-      if (err?.details?.errors) {
+      if (apiError.details?.errors) {
         const backendErrors: Record<string, string> = {};
-        err.details.errors.forEach((error: any) => {
+        apiError.details.errors.forEach((error: any) => {
           const field = error.param || error.field;
           if (field) {
             backendErrors[field] = error.msg || error.message;
@@ -127,7 +126,7 @@ export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin, 
         });
         setErrors(backendErrors);
       } else {
-        setError(err?.message || 'Произошла ошибка при регистрации. Попробуйте позже.');
+        setError(apiError.message || 'Произошла ошибка при регистрации. Попробуйте позже.');
       }
     } finally {
       setLoading(false);

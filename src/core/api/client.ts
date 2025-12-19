@@ -1,4 +1,4 @@
-import { ApiResponse, ApiError } from './types';
+import { ApiResponse } from './types';
 
 import { config } from '../../config/env';
 
@@ -17,13 +17,7 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
-    
-    console.log('🌐 API Request:', {
-      url,
-      method: options.method || 'GET',
-      body: options.body
-    });
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -43,12 +37,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      console.log('📡 API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url
-      });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new ApiError(
@@ -58,13 +47,20 @@ class ApiClient {
         );
       }
 
+      if (response.status === 401) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+        throw new ApiError('Session expired. Please login again.', 'UNAUTHORIZED');
+      }
+
       const data = await response.json();
       return data;
     } catch (error) {
       if (error instanceof ApiError) {
         throw error;
       }
-      
+
       throw new ApiError(
         error instanceof Error ? error.message : 'Network error',
         'NETWORK_ERROR'
@@ -74,7 +70,7 @@ class ApiClient {
 
   async get<T>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
     let url = endpoint;
-    
+
     if (params) {
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {

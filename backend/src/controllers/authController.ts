@@ -222,16 +222,12 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     const user = (req as any).user as User;
     const { firstName, lastName, phone, avatar } = req.body;
 
-    console.log('updateProfile controller called with body:', req.body);
-
     const updateData: any = {};
 
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
     if (phone !== undefined) updateData.phone = phone;
     if (avatar !== undefined) updateData.avatar = avatar;
-
-    console.log('Constructed updateData:', updateData);
 
     const updatedUser = await UserModel.update(user.id, updateData);
 
