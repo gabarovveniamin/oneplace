@@ -7,16 +7,32 @@ import { testConnection } from './config/database';
 import { initializeDatabase } from './config/initDatabase';
 import { seedDatabase } from './config/seed';
 import { errorHandler, notFound } from './middleware/errorHandler';
+import { UserModel } from './models/User';
+import { JobModel } from './models/Job';
+import { ResumeModel } from './models/Resume';
 
 // Import routes
 import authRoutes from './routes/auth';
 import jobRoutes from './routes/jobs';
 import adminRoutes from './routes/admin';
+import resumeRoutes from './routes/resume';
 import favoritesRoutes from './routes/favorites';
 import applicationRoutes from './routes/applications';
 import notificationRoutes from './routes/notifications';
+import { resumeController } from './controllers/resumeController';
+import path from 'path';
 
 const app = express();
+
+// Debug route
+app.get('/api/debug-db', (req, res) => {
+  res.json({
+    cwd: process.cwd(),
+    execPath: process.execPath,
+    __dirname: __dirname,
+    dbPath: path.resolve(process.cwd(), 'database.sqlite')
+  });
+});
 
 // Initialize database
 initializeDatabase();
@@ -73,6 +89,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/resumes', resumeRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -89,7 +106,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${config.nodeEnv}`);
   console.log(`🔗 API URL: http://localhost:${PORT}/api`);
-  console.log(`💾 Database: ${config.postgres.host}:${config.postgres.port}/${config.postgres.database}`);
+  console.log('💾 Using SQLite database');
 });
 
 export default app;

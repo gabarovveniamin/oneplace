@@ -2,11 +2,19 @@ import { apiClient } from './client';
 import { UserResponse } from './auth';
 import { JobResponse } from './types';
 
+interface AdminUsersData {
+    users: UserResponse[];
+}
+
+interface AdminJobsData {
+    jobs: JobResponse[];
+}
+
 export class AdminApiService {
     // Получить всех пользователей
     async getAllUsers(): Promise<UserResponse[]> {
-        const response = await apiClient.get<any>('/admin/users');
-        return response.data?.users || response.data;
+        const response = await apiClient.get<AdminUsersData>('/admin/users');
+        return response.data.users;
     }
 
     // Удалить пользователя
@@ -16,8 +24,8 @@ export class AdminApiService {
 
     // Получить все вакансии
     async getAllJobs(): Promise<JobResponse[]> {
-        const response = await apiClient.get<any>('/admin/jobs');
-        return response.data?.jobs || response.data;
+        const response = await apiClient.get<AdminJobsData>('/admin/jobs');
+        return response.data.jobs;
     }
 
     // Удалить вакансию

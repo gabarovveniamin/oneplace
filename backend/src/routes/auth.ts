@@ -3,6 +3,7 @@ import {
   register,
   login,
   getProfile,
+  getUserById,
   updateProfile,
   changePassword,
   registerValidation,
@@ -20,6 +21,7 @@ router.post('/login', loginValidation, validate(loginValidation), login);
 
 // Protected routes
 router.get('/profile', authenticate, getProfile);
+router.get('/users/:userId', authenticate, getUserById);
 router.put('/profile',
   authenticate,
   validate([

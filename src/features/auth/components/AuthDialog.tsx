@@ -7,13 +7,15 @@ interface AuthDialogProps {
     onClose: () => void;
     defaultView?: 'login' | 'register';
     onSuccess?: () => void;
+    onResumeChoice?: (type: 'basic' | 'extended') => void;
 }
 
 export function AuthDialog({
     isOpen,
     onClose,
     defaultView = 'login',
-    onSuccess
+    onSuccess,
+    onResumeChoice
 }: AuthDialogProps) {
     const [view, setView] = useState<'login' | 'register'>(defaultView);
 
@@ -55,6 +57,15 @@ export function AuthDialog({
                     onBack={onClose}
                     onRegistrationComplete={handleRegistrationComplete}
                     onSwitchToLogin={() => setView('login')}
+                    onResumeChoice={(type, user) => {
+                        console.log('Dialog: onResumeChoice called', type);
+                        onClose();
+                        if (onResumeChoice) {
+                            onResumeChoice(type);
+                        } else {
+                            window.location.reload();
+                        }
+                    }}
                 />
             )}
         </div>

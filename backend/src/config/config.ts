@@ -6,15 +6,7 @@ export const config = {
   port: process.env.PORT || 3002,
   nodeEnv: process.env.NODE_ENV || 'development',
 
-  // Database
-  postgres: {
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT || '5433'),
-    database: process.env.POSTGRES_DB || 'onepace',
-    user: process.env.POSTGRES_USER || 'onepace_user',
-    password: process.env.POSTGRES_PASSWORD || 'onepace_password',
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  },
+  // Database (SQLite used internally via database.ts)
 
   // JWT
   jwt: {
@@ -24,7 +16,7 @@ export const config = {
 
   // CORS
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
   },
 

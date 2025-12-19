@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "./button";
 import { Input } from "./input";
-import { Search, User, Filter, X, ChevronDown } from "lucide-react";
+import { Search, User, Filter, X, ChevronDown, LogOut } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchFilters } from "../../../shared/types/job";
 import { UserResponse } from "../../../core/api/auth";
@@ -22,6 +22,7 @@ interface HeaderProps {
   onRegisterClick?: () => void;
   onProfileClick?: () => void;
   onAdminClick?: () => void;
+  onLogout?: () => void;
   currentUser?: UserResponse | null;
 }
 
@@ -38,6 +39,7 @@ export function Header({
   onRegisterClick,
   onProfileClick,
   onAdminClick,
+  onLogout,
   currentUser
 }: HeaderProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -177,6 +179,15 @@ export function Header({
                     )}
                     <Button variant="outline" className="rounded-lg" onClick={onProfileClick}>
                       Профиль
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-gray-500 hover:text-red-600"
+                      onClick={onLogout}
+                      title="Выйти"
+                    >
+                      <LogOut className="h-5 w-5" />
                     </Button>
                   </div>
                 ) : (
