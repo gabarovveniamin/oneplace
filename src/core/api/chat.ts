@@ -5,7 +5,7 @@ export interface ChatMessage {
     sender_id: string;
     receiver_id: string;
     content: string;
-    is_read: number;
+    is_read: boolean;
     created_at: string;
 }
 
@@ -13,7 +13,7 @@ export interface Chat {
     other_user_id: string;
     last_message: string;
     last_message_at: string;
-    is_read: number;
+    is_read: boolean;
     sender_id: string;
     first_name: string;
     last_name: string;

@@ -36,15 +36,8 @@ export class JobModelMethods {
       if (value !== undefined) {
         const dbField = fieldMappings[key as keyof typeof fieldMappings];
         if (dbField) {
-          fields.push(`${dbField} = ?`);
-          // Конвертируем boolean в 0/1 для SQLite
-          if (typeof value === 'boolean') {
-            values.push(value ? 1 : 0);
-          } else if (key === 'tags' && Array.isArray(value)) {
-            values.push(JSON.stringify(value));
-          } else {
-            values.push(value);
-          }
+          fields.push(`${dbField} = $${fields.length + 1}`);
+          values.push(value);
         }
       }
     });
@@ -57,12 +50,12 @@ export class JobModelMethods {
     await query(
       `UPDATE jobs 
        SET ${fields.join(', ')}
-       WHERE id = ?`,
+       WHERE id = $${values.length}`,
       values
     );
 
     // Получаем обновленную вакансию
-    const result = await query('SELECT * FROM jobs WHERE id = ?', [id]);
+    const result = await query('SELECT * FROM jobs WHERE id = $1', [id]);
 
     if (result.rows.length === 0) {
       return null;
@@ -73,13 +66,13 @@ export class JobModelMethods {
 
   // Удаление вакансии
   static async delete(id: string): Promise<boolean> {
-    const result = await query('DELETE FROM jobs WHERE id = ?', [id]);
+    const result = await query('DELETE FROM jobs WHERE id = $1', [id]);
     return result.rowCount > 0;
   }
 
   // Увеличение счетчика просмотров
   static async incrementViews(id: string): Promise<void> {
-    await query('UPDATE jobs SET views = views + 1 WHERE id = ?', [id]);
+    await query('UPDATE jobs SET views = views + 1 WHERE id = $1', [id]);
   }
 
   // Получение популярных вакансий
@@ -88,9 +81,9 @@ export class JobModelMethods {
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
        FROM jobs j
        LEFT JOIN users u ON j.posted_by = u.id
-       WHERE j.is_active = 1
+       WHERE j.is_active = TRUE
        ORDER BY j.views DESC, j.created_at DESC
-       LIMIT ?`,
+       LIMIT $1`,
       [limit]
     );
 
@@ -103,9 +96,9 @@ export class JobModelMethods {
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
        FROM jobs j
        LEFT JOIN users u ON j.posted_by = u.id
-       WHERE j.is_active = 1
+       WHERE j.is_active = TRUE
        ORDER BY j.created_at DESC
-       LIMIT ?`,
+       LIMIT $1`,
       [limit]
     );
 
@@ -120,18 +113,18 @@ export class JobModelMethods {
     byRegion: Record<string, number>;
   }> {
     const [totalResult, byTypeResult, byIndustryResult, byRegionResult] = await Promise.all([
-      query('SELECT COUNT(*) as total FROM jobs WHERE is_active = 1'),
-      query('SELECT type, COUNT(*) as count FROM jobs WHERE is_active = 1 GROUP BY type'),
-      query('SELECT industry, COUNT(*) as count FROM jobs WHERE is_active = 1 AND industry IS NOT NULL GROUP BY industry'),
-      query('SELECT region, COUNT(*) as count FROM jobs WHERE is_active = 1 AND region IS NOT NULL GROUP BY region'),
+      query('SELECT COUNT(*) as total FROM jobs WHERE is_active = TRUE'),
+      query('SELECT type, COUNT(*) as count FROM jobs WHERE is_active = TRUE GROUP BY type'),
+      query('SELECT industry, COUNT(*) as count FROM jobs WHERE is_active = TRUE AND industry IS NOT NULL GROUP BY industry'),
+      query('SELECT region, COUNT(*) as count FROM jobs WHERE is_active = TRUE AND region IS NOT NULL GROUP BY region'),
     ]);
 
-    const byType = byTypeResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.type]: row.count }), {});
-    const byIndustry = byIndustryResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.industry]: row.count }), {});
-    const byRegion = byRegionResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.region]: row.count }), {});
+    const byType = byTypeResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.type]: parseInt(row.count) }), {});
+    const byIndustry = byIndustryResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.industry]: parseInt(row.count) }), {});
+    const byRegion = byRegionResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.region]: parseInt(row.count) }), {});
 
     return {
-      total: totalResult.rows[0].total,
+      total: parseInt(totalResult.rows[0].total),
       byType,
       byIndustry,
       byRegion,
@@ -144,7 +137,7 @@ export class JobModelMethods {
       `SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
        FROM jobs j
        LEFT JOIN users u ON j.posted_by = u.id
-       WHERE j.posted_by = ?
+       WHERE j.posted_by = $1
        ORDER BY j.created_at DESC`,
       [userId]
     );
@@ -163,7 +156,7 @@ export class JobModelMethods {
       location: row.location,
       type: row.type,
       description: row.description,
-      tags: row.tags ? JSON.parse(row.tags) : [],
+      tags: Array.isArray(row.tags) ? row.tags : (row.tags ? JSON.parse(row.tags) : []),
       logo: row.logo,
       specialization: row.specialization,
       industry: row.industry,

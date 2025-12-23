@@ -1,106 +1,69 @@
-import path from 'path';
+import { Pool } from 'pg';
 import { config } from './config';
 
-// better-sqlite3 требует CommonJS импорт
-const BetterSqlite3 = require('better-sqlite3');
-
-// Путь к файлу базы данных
-// Путь к файлу базы данных
-// Using absolute path from process.cwd() (project root) to avoid relative path issues between src/ and dist/
-// Using absolute path from process.cwd() (project root) to avoid relative path issues between src/ and dist/
-const dbPath = path.resolve(process.cwd(), 'database.sqlite');
-
-// Создаем подключение к SQLite
-const db = new BetterSqlite3(dbPath, {
-  verbose: config.nodeEnv === 'development' ? console.log : undefined,
+// Создаем пул соединений к PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('sslmode=require') ? { rejectUnauthorized: false } : false,
 });
 
-// Включаем поддержку внешних ключей
-db.pragma('foreign_keys = ON');
-
-// Оптимизация производительности
-db.pragma('journal_mode = WAL'); // Write-Ahead Logging для лучшей производительности
-db.pragma('synchronous = NORMAL'); // Баланс между скоростью и безопасностью
-db.pragma('cache_size = -64000'); // 64MB кэша
-db.pragma('temp_store = MEMORY'); // Временные таблицы в памяти
+// Логирование ошибок пула
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+});
 
 // Функция для выполнения запросов (совместимость с PostgreSQL API)
-export const query = async <T = any>(text: string, params?: (string | number | boolean | null)[]): Promise<{ rows: T[], rowCount: number }> => {
+export const query = async <T = any>(text: string, params?: any[]): Promise<{ rows: T[], rowCount: number }> => {
   const start = Date.now();
   try {
-    // Преобразуем PostgreSQL параметры ($1, $2) в SQLite (?, ?)
-    const sqliteQuery = text.replace(/\$\d+/g, '?');
-
-    // Определяем тип запроса
-    const isSelect = sqliteQuery.trim().toUpperCase().startsWith('SELECT');
-    const isReturning = sqliteQuery.toUpperCase().includes('RETURNING');
-
-    let result;
-
-    if (isSelect || isReturning) {
-      // Для SELECT и INSERT...RETURNING используем all()
-      const stmt = db.prepare(sqliteQuery);
-      const rows = params && params.length > 0 ? stmt.all(...params) : stmt.all();
-      result = { rows, rowCount: rows.length };
-    } else {
-      // Для INSERT, UPDATE, DELETE используем run()
-      const stmt = db.prepare(sqliteQuery);
-      const info = params && params.length > 0 ? stmt.run(...params) : stmt.run();
-      result = { rows: [], rowCount: info.changes };
-    }
-
+    const result = await pool.query(text, params);
     const duration = Date.now() - start;
+
     if (config.nodeEnv === 'development') {
-      console.log('Executed query', { text: sqliteQuery.substring(0, 100), duration, rows: result.rowCount });
+      console.log('Executed query', {
+        text: text.substring(0, 100).replace(/\n/g, ' '),
+        duration: `${duration}ms`,
+        rows: result.rowCount
+      });
     }
 
-    return result as { rows: T[], rowCount: number };
+    return {
+      rows: result.rows,
+      rowCount: result.rowCount || 0
+    };
   } catch (err) {
     const error = err as Error;
-    if (config.nodeEnv === 'development') {
-      console.error('Database query error:', error.message);
-      console.error('Query:', text);
-      console.error('Params:', params);
-    }
+    console.error('Database query error:', error.message);
+    console.error('Query:', text);
+    if (params) console.error('Params:', params);
     throw error;
   }
 };
 
-// Функция для получения клиента (для совместимости с PostgreSQL API)
+// Функция для получения клиента (для транзакций)
 export const getClient = async () => {
+  const client = await pool.connect();
   return {
-    query,
-    release: () => { }, // SQLite не требует освобождения соединений
+    query: client.query.bind(client),
+    release: client.release.bind(client),
   };
 };
 
 // Функция для тестирования подключения
 export const testConnection = async (): Promise<boolean> => {
   try {
-    const result = await query("SELECT datetime('now') as now");
-    console.log('✅ Database connected successfully:', result.rows[0]);
+    const result = await query("SELECT NOW() as now");
+    console.log('✅ PostgreSQL connected successfully:', result.rows[0].now);
     return true;
   } catch (err) {
-    if (config.nodeEnv === 'development') {
-      console.error('❌ Database connection failed:', err);
-    }
+    console.error('❌ PostgreSQL connection failed:', err);
     return false;
   }
 };
 
-// Функция для закрытия базы данных
+// Функция для закрытия пула
 export const closePool = async (): Promise<void> => {
-  db.close();
+  await pool.end();
 };
 
-// Обработка закрытия приложения
-process.on('exit', () => {
-  db.close();
-});
-
-process.on('SIGINT', () => {
-  db.close();
-  process.exit(0);
-});
-
-export default db;
+export default pool;

@@ -1,27 +1,29 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import database from '../config/database';
+import { query } from '../config/database';
 import { socketManager } from '../socket';
 
 // Helper to create notification (internal use)
-export const createNotificationInternal = (userId: string, type: string, title: string, message: string, relatedId?: string) => {
+export const createNotificationInternal = async (userId: string, type: string, title: string, message: string, relatedId?: string) => {
     try {
-        const stmt = database.prepare(`
+        const result = await query(`
             INSERT INTO notifications (user_id, type, title, message, related_id)
-            VALUES (?, ?, ?, ?, ?)
-        `);
-        const result = stmt.run(userId, type, title, message, relatedId);
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, created_at
+        `, [userId, type, title, message, relatedId || null]);
+
+        const newNotification = result.rows[0];
 
         // Push notification via Socket.IO
         socketManager.sendToUser(userId, 'notification', {
-            id: result.lastInsertRowid.toString(),
+            id: newNotification.id,
             user_id: userId,
             type,
             title,
             message,
             related_id: relatedId,
-            is_read: 0,
-            created_at: new Date().toISOString()
+            is_read: false,
+            created_at: newNotification.created_at
         });
     } catch (err) {
         console.error('Failed to create notification or send via socket', err);
@@ -41,8 +43,8 @@ export const applyForJob = async (req: AuthRequest, res: Response): Promise<void
 
     try {
         // Check if job exists and get employer ID
-        const jobStmt = database.prepare('SELECT posted_by, title FROM jobs WHERE id = ?');
-        const job = jobStmt.get(jobId) as { posted_by: string; title: string } | undefined;
+        const jobResult = await query('SELECT posted_by, title FROM jobs WHERE id = $1', [jobId]);
+        const job = jobResult.rows[0] as { posted_by: string; title: string } | undefined;
 
         if (!job) {
             res.status(404).json({ message: 'Job not found' });
@@ -50,8 +52,8 @@ export const applyForJob = async (req: AuthRequest, res: Response): Promise<void
         }
 
         // Check if already applied
-        const checkStmt = database.prepare('SELECT id FROM applications WHERE user_id = ? AND job_id = ?');
-        const existing = checkStmt.get(userId, jobId);
+        const checkResult = await query('SELECT id FROM applications WHERE user_id = $1 AND job_id = $2', [userId, jobId]);
+        const existing = checkResult.rows[0];
 
         if (existing) {
             res.status(400).json({ message: 'You have already applied for this job' });
@@ -59,14 +61,13 @@ export const applyForJob = async (req: AuthRequest, res: Response): Promise<void
         }
 
         // Create application
-        const insertStmt = database.prepare(`
+        await query(`
             INSERT INTO applications (job_id, user_id, cover_letter)
-            VALUES (?, ?, ?)
-        `);
-        insertStmt.run(jobId, userId, coverLetter);
+            VALUES ($1, $2, $3)
+        `, [jobId, userId, coverLetter]);
 
         // Notify employer
-        createNotificationInternal(
+        await createNotificationInternal(
             job.posted_by,
             'new_application',
             'Новый отклик',
@@ -89,15 +90,14 @@ export const getUserApplications = async (req: AuthRequest, res: Response): Prom
     }
 
     try {
-        const stmt = database.prepare(`
+        const result = await query(`
             SELECT a.*, j.title as job_title, j.company, j.location, j.logo
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
-            WHERE a.user_id = ?
+            WHERE a.user_id = $1
             ORDER BY a.created_at DESC
-        `);
-        const applications = stmt.all(userId);
-        res.json({ data: applications });
+        `, [userId]);
+        res.json({ data: result.rows });
     } catch (err) {
         res.status(500).json({ message: 'Failed to fetch applications' });
     }
@@ -113,16 +113,15 @@ export const getEmployerApplications = async (req: AuthRequest, res: Response): 
     }
 
     try {
-        const stmt = database.prepare(`
+        const result = await query(`
             SELECT a.*, j.title as job_title, u.first_name, u.last_name, u.email, u.avatar
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
             JOIN users u ON a.user_id = u.id
-            WHERE j.posted_by = ?
+            WHERE j.posted_by = $1
             ORDER BY a.created_at DESC
-        `);
-        const applications = stmt.all(employerId);
-        res.json({ data: applications });
+        `, [employerId]);
+        res.json({ data: result.rows });
     } catch (err) {
         res.status(500).json({ message: 'Failed to fetch applications' });
     }
@@ -140,21 +139,21 @@ export const updateApplicationStatus = async (req: AuthRequest, res: Response): 
 
     try {
         // Verify ownership
-        const verifyStmt = database.prepare(`
+        const verifyResult = await query(`
             SELECT a.id, a.user_id, j.title
             FROM applications a
             JOIN jobs j ON a.job_id = j.id
-            WHERE a.id = ? AND j.posted_by = ?
-        `);
-        const application = verifyStmt.get(applicationId, employerId) as { id: string; user_id: string; title: string } | undefined;
+            WHERE a.id = $1 AND j.posted_by = $2
+        `, [applicationId, employerId]);
+
+        const application = verifyResult.rows[0] as { id: string; user_id: string; title: string } | undefined;
 
         if (!application) {
             res.status(404).json({ message: 'Application not found or access denied' });
             return;
         }
 
-        const updateStmt = database.prepare('UPDATE applications SET status = ? WHERE id = ?');
-        updateStmt.run(status, applicationId);
+        await query('UPDATE applications SET status = $1 WHERE id = $2', [status, applicationId]);
 
         // Notify candidate
         let message = `Статус вашего отклика на вакансию "${application.title}" изменен на: ${status}`;
@@ -162,7 +161,7 @@ export const updateApplicationStatus = async (req: AuthRequest, res: Response): 
         if (status === 'rejected') message = `К сожалению, работодатель отклонил ваш отклик на вакансию "${application.title}".`;
         if (status === 'accepted') message = `Поздравляем! Ваш отклик на вакансию "${application.title}" одобрен. Работодатель свяжется с вами.`;
 
-        createNotificationInternal(
+        await createNotificationInternal(
             application.user_id,
             'application_status',
             'Изменение статуса отклика',

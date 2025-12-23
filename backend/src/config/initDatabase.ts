@@ -1,247 +1,178 @@
-import database from './database';
+import { query } from './database';
 
-const db = database;
-
-export const initializeDatabase = () => {
-  console.log('🔧 Initializing SQLite database...');
+export const initializeDatabase = async () => {
+  console.log('🔧 Initializing PostgreSQL database...');
 
   try {
-    // Создание таблицы пользователей
-    db.exec(`
+    // Включаем расширение для UUID если его нет (для старых версий Postgres)
+    await query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+
+    // 1. Таблица пользователей
+    await query(`
       CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        phone TEXT,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        first_name VARCHAR(100) NOT NULL,
+        last_name VARCHAR(100) NOT NULL,
+        phone VARCHAR(20),
         avatar TEXT,
-        role TEXT DEFAULT 'user' CHECK (role IN ('user', 'employer', 'admin')),
-        is_email_verified INTEGER DEFAULT 0,
-        is_active INTEGER DEFAULT 1,
-        last_login TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now')),
-        org_name TEXT,
-        org_industry TEXT,
-        org_location TEXT,
+        role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'employer', 'admin')),
+        is_email_verified BOOLEAN DEFAULT FALSE,
+        is_active BOOLEAN DEFAULT TRUE,
+        last_login TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        org_name VARCHAR(255),
+        org_industry VARCHAR(255),
+        org_location VARCHAR(255),
         org_description TEXT,
-        org_website TEXT,
-        org_email TEXT,
-        org_phone TEXT,
+        org_website VARCHAR(255),
+        org_email VARCHAR(255),
+        org_phone VARCHAR(20),
         org_logo TEXT
       )
     `);
 
-    // Миграция: добавление колонок организации, если их нет
-    const columns = [
-      'org_name', 'org_industry', 'org_location', 'org_description',
-      'org_website', 'org_email', 'org_phone', 'org_logo'
+    // Проверка и добавление отсутствующих колонок (миграция)
+    const columnsToCheck = [
+      { name: 'org_name', type: 'VARCHAR(255)' },
+      { name: 'org_industry', type: 'VARCHAR(255)' },
+      { name: 'org_location', type: 'VARCHAR(255)' },
+      { name: 'org_description', type: 'TEXT' },
+      { name: 'org_website', type: 'VARCHAR(255)' },
+      { name: 'org_email', type: 'VARCHAR(255)' },
+      { name: 'org_phone', type: 'VARCHAR(20)' },
+      { name: 'org_logo', type: 'TEXT' }
     ];
 
-    const tableInfo = db.prepare("PRAGMA table_info(users)").all();
-    const existingColumns = tableInfo.map((col: any) => col.name);
+    for (const col of columnsToCheck) {
+      const colCheck = await query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='users' AND column_name=$1
+      `, [col.name]);
 
-    columns.forEach(col => {
-      if (!existingColumns.includes(col)) {
-        console.log(`🚀 Adding column ${col} to users table...`);
-        db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`);
+      if (colCheck.rowCount === 0) {
+        console.log(`🚀 Adding column ${col.name} to users table...`);
+        await query(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`);
       }
-    });
+    }
 
-    // Создание таблицы вакансий
-    db.exec(`
+    // 2. Таблица вакансий
+    await query(`
       CREATE TABLE IF NOT EXISTS jobs (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        title TEXT NOT NULL,
-        company TEXT NOT NULL,
-        salary TEXT NOT NULL,
-        location TEXT NOT NULL,
-        type TEXT NOT NULL CHECK (type IN ('full-time', 'part-time', 'contract', 'freelance', 'internship', 'daily', 'projects', 'travel')),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        company VARCHAR(255) NOT NULL,
+        salary VARCHAR(100) NOT NULL,
+        location VARCHAR(100) NOT NULL,
+        type VARCHAR(20) NOT NULL CHECK (type IN ('full-time', 'part-time', 'contract', 'freelance', 'internship', 'daily', 'projects', 'travel')),
         description TEXT NOT NULL,
-        tags TEXT, -- JSON массив строк
+        tags JSONB DEFAULT '[]',
         logo TEXT,
         
-        -- Расширенные поля для поиска
-        specialization TEXT,
-        industry TEXT,
-        region TEXT,
+        specialization VARCHAR(255),
+        industry VARCHAR(255),
+        region VARCHAR(255),
         salary_from INTEGER,
         salary_to INTEGER,
-        salary_frequency TEXT CHECK (salary_frequency IN ('hourly', 'daily', 'weekly', 'monthly', 'yearly')),
-        education TEXT CHECK (education IN ('no-education', 'secondary', 'vocational', 'bachelor', 'master', 'phd')),
-        experience TEXT CHECK (experience IN ('no-experience', '1-year', '1-3-years', '3-5-years', '5-10-years', '10-plus-years')),
-        employment_type TEXT CHECK (employment_type IN ('full-time', 'part-time', 'contract', 'freelance', 'internship')),
-        schedule TEXT CHECK (schedule IN ('flexible', 'fixed', 'shift', 'night', 'weekend')),
+        salary_frequency VARCHAR(20) CHECK (salary_frequency IN ('hourly', 'daily', 'weekly', 'monthly', 'yearly')),
+        education VARCHAR(30) CHECK (education IN ('no-education', 'secondary', 'vocational', 'bachelor', 'master', 'phd')),
+        experience VARCHAR(30) CHECK (experience IN ('no-experience', '1-year', '1-3-years', '3-5-years', '5-10-years', '10-plus-years')),
+        employment_type VARCHAR(20) CHECK (employment_type IN ('full-time', 'part-time', 'contract', 'freelance', 'internship')),
+        schedule VARCHAR(20) CHECK (schedule IN ('flexible', 'fixed', 'shift', 'night', 'weekend')),
         work_hours INTEGER CHECK (work_hours >= 1 AND work_hours <= 24),
-        work_format TEXT CHECK (work_format IN ('office', 'remote', 'hybrid')),
+        work_format VARCHAR(20) CHECK (work_format IN ('office', 'remote', 'hybrid')),
         
-        -- Метаданные
-        posted_by TEXT NOT NULL,
-        is_active INTEGER DEFAULT 1,
-        is_featured INTEGER DEFAULT 0,
+        posted_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        is_active BOOLEAN DEFAULT TRUE,
+        is_featured BOOLEAN DEFAULT FALSE,
         views INTEGER DEFAULT 0,
         applications INTEGER DEFAULT 0,
-        expires_at TEXT DEFAULT (datetime('now', '+30 days')),
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now')),
-        
-        FOREIGN KEY (posted_by) REFERENCES users(id) ON DELETE CASCADE
+        expires_at TIMESTAMPTZ DEFAULT (CURRENT_TIMESTAMP + INTERVAL '30 days'),
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Создание таблицы избранного
-    db.exec(`
+    // 3. Таблица избранного
+    await query(`
       CREATE TABLE IF NOT EXISTS favorites (
-        user_id TEXT NOT NULL,
-        job_id TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now')),
-        PRIMARY KEY (user_id, job_id),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, job_id)
       )
     `);
 
-    // Создание таблицы заявок (откликов)
-    db.exec(`
+    // 4. Таблица заявок
+    await query(`
       CREATE TABLE IF NOT EXISTS applications (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        job_id TEXT NOT NULL,
-        user_id TEXT NOT NULL,
-        status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'viewed', 'rejected', 'accepted')),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'viewed', 'rejected', 'accepted')),
         cover_letter TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now')),
-        FOREIGN KEY (job_id) REFERENCES jobs(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Создание таблицы уведомлений
-    db.exec(`
+    // 5. Таблица уведомлений
+    await query(`
       CREATE TABLE IF NOT EXISTS notifications (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        user_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        title TEXT NOT NULL,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
         message TEXT NOT NULL,
-        related_id TEXT,
-        is_read INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT (datetime('now')),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        related_id UUID,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Создание таблицы сообщений
-    db.exec(`
+    // 6. Таблица сообщений
+    await query(`
       CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        sender_id TEXT NOT NULL,
-        receiver_id TEXT NOT NULL,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         content TEXT NOT NULL,
-        is_read INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT (datetime('now')),
-        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Создание таблицы резюме
-    db.exec(`
+    // 7. Таблица резюме
+    await query(`
       CREATE TABLE IF NOT EXISTS resumes (
-        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-        user_id TEXT NOT NULL UNIQUE,
-        title TEXT,
-        city TEXT,
-        phone TEXT,
-        salary TEXT,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255),
+        city VARCHAR(100),
+        phone VARCHAR(20),
+        salary VARCHAR(100),
         summary TEXT,
-        skills TEXT,
-        experience TEXT,
-        education TEXT,
-        projects TEXT,
-        status TEXT DEFAULT 'active',
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now')),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        skills JSONB DEFAULT '[]',
+        experience JSONB DEFAULT '[]',
+        education JSONB DEFAULT '[]',
+        projects JSONB DEFAULT '[]',
+        status VARCHAR(20) DEFAULT 'active',
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Создание индексов для пользователей
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
-      CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
-    `);
 
-    // Создание индексов для вакансий
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_jobs_type ON jobs(type);
-      CREATE INDEX IF NOT EXISTS idx_jobs_location ON jobs(location);
-      CREATE INDEX IF NOT EXISTS idx_jobs_specialization ON jobs(specialization);
-      CREATE INDEX IF NOT EXISTS idx_jobs_industry ON jobs(industry);
-      CREATE INDEX IF NOT EXISTS idx_jobs_region ON jobs(region);
-      CREATE INDEX IF NOT EXISTS idx_jobs_salary_range ON jobs(salary_from, salary_to);
-      CREATE INDEX IF NOT EXISTS idx_jobs_experience ON jobs(experience);
-      CREATE INDEX IF NOT EXISTS idx_jobs_employment_type ON jobs(employment_type);
-      CREATE INDEX IF NOT EXISTS idx_jobs_work_format ON jobs(work_format);
-      CREATE INDEX IF NOT EXISTS idx_jobs_posted_by ON jobs(posted_by);
-      CREATE INDEX IF NOT EXISTS idx_jobs_is_active ON jobs(is_active);
-      CREATE INDEX IF NOT EXISTS idx_jobs_is_featured ON jobs(is_featured);
-      CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
-      CREATE INDEX IF NOT EXISTS idx_jobs_expires_at ON jobs(expires_at);
+    // Создание индексов
+    await query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
+    await query('CREATE INDEX IF NOT EXISTS idx_jobs_search ON jobs USING GIN (to_tsvector(\'russian\', title || \' \' || company || \' \' || description))');
+    await query('CREATE INDEX IF NOT EXISTS idx_jobs_is_active ON jobs(is_active)');
+    await query('CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id)');
 
-      -- Индексы для резюме
-      CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
-      CREATE INDEX IF NOT EXISTS idx_resumes_city ON resumes(city);
-      CREATE INDEX IF NOT EXISTS idx_resumes_title ON resumes(title);
-    `);
-
-    // Создание виртуальной таблицы для полнотекстового поиска (FTS5)
-    db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS jobs_fts USING fts5(
-        id UNINDEXED,
-        title,
-        description,
-        company,
-        content=jobs,
-        content_rowid=rowid
-      );
-    `);
-
-    // Триггеры для синхронизации FTS таблицы
-    db.exec(`
-      CREATE TRIGGER IF NOT EXISTS jobs_fts_insert AFTER INSERT ON jobs BEGIN
-        INSERT INTO jobs_fts(rowid, id, title, description, company)
-        VALUES (new.rowid, new.id, new.title, new.description, new.company);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS jobs_fts_delete AFTER DELETE ON jobs BEGIN
-        DELETE FROM jobs_fts WHERE rowid = old.rowid;
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS jobs_fts_update AFTER UPDATE ON jobs BEGIN
-        UPDATE jobs_fts SET title = new.title, description = new.description, company = new.company
-        WHERE rowid = new.rowid;
-      END;
-    `);
-
-    // Удаляем старый триггер, если он был (чтобы избежать рекурсии, так как теперь обновляем вручную)
-    db.exec(`DROP TRIGGER IF EXISTS update_users_updated_at`);
-
-    // Триггеры для автоматического обновления updated_at (только для jobs, users обновляем вручную)
-    db.exec(`
-      CREATE TRIGGER IF NOT EXISTS update_jobs_updated_at 
-      AFTER UPDATE ON jobs
-      BEGIN
-        UPDATE jobs SET updated_at = datetime('now') WHERE id = NEW.id;
-      END;
-    `);
-
-    console.log('✅ Database initialized successfully!');
-    console.log('📊 Tables: users, jobs');
-    console.log('🔍 Full-text search: enabled (FTS5)');
-    console.log('📈 Indexes: created for optimal performance');
+    console.log('✅ PostgreSQL database initialized successfully!');
 
   } catch (error) {
     console.error('❌ Database initialization failed:', error);

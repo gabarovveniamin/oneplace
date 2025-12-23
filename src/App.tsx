@@ -10,6 +10,7 @@ import { Profile, PostJob, ResumeViewer } from './features/profile/components';
 import { Registration, ExtendedResumeBuilder, AuthDialog } from './features/auth/components';
 import { ChatWindow } from './features/chat/components/ChatWindow';
 import { MessengerPopover } from './features/chat/components/MessengerPopover';
+import { MessagesPage } from './features/messages/components/MessagesPage';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { Job, SearchFilters } from './shared/types/job';
 import { Chat } from './core/api/chat';
@@ -17,7 +18,7 @@ import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages'>('home');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -49,6 +50,14 @@ export default function App() {
         const user = authApiService.getCurrentUser();
         if (user && (user.role === 'employer' || user.role === 'admin')) {
           setCurrentView('post-job');
+        } else {
+          window.location.hash = '';
+          setCurrentView('home');
+        }
+      } else if (hash === '#messages') {
+        const user = authApiService.getCurrentUser();
+        if (user) {
+          setCurrentView('messages');
         } else {
           window.location.hash = '';
           setCurrentView('home');
@@ -167,6 +176,7 @@ export default function App() {
     setCurrentUser(null);
     setCurrentView('home');
     setIsAuthDialogOpen(false);
+    window.location.hash = '';
   };
 
   // Синхронизируем поисковое поле с фильтрами при загрузке
@@ -212,12 +222,6 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  const handleLogout = () => {
-    authApiService.logout();
-    setCurrentUser(null);
-    setCurrentView('home');
-    window.location.hash = '';
-  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -337,6 +341,10 @@ export default function App() {
 
         {currentView === 'admin' && (
           <AdminDashboard onBack={handleBackToHome} />
+        )}
+
+        {currentView === 'messages' && (
+          <MessagesPage />
         )}
       </main>
 

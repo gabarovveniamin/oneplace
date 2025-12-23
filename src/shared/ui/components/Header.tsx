@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "./button";
 import { Input } from "./input";
-import { Search, User, Filter, X, ChevronDown, LogOut } from "lucide-react";
+import { Search, User, Filter, X, ChevronDown, LogOut, MessageSquare } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchFilters } from "../../../shared/types/job";
 import { UserResponse } from "../../../core/api/auth";
@@ -177,6 +177,14 @@ export function Header({
                         Админ панель
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      className="rounded-lg"
+                      onClick={() => window.location.hash = 'messages'}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Сообщения
+                    </Button>
                     <Button variant="outline" className="rounded-lg" onClick={onProfileClick}>
                       Профиль
                     </Button>

@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import database from '../config/database';
+import { query } from '../config/database';
 import { socketManager } from '../socket';
 
 export const sendMessage = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -18,20 +18,21 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
     }
 
     try {
-        const stmt = database.prepare(`
+        const result = await query(`
             INSERT INTO messages (sender_id, receiver_id, content)
-            VALUES (?, ?, ?)
-        `);
-        const result = stmt.run(senderId, receiverId, content);
-        const messageId = result.lastInsertRowid.toString();
+            VALUES ($1, $2, $3)
+            RETURNING id, created_at
+        `, [senderId, receiverId, content]);
+
+        const newMessage = result.rows[0];
 
         const messageData = {
-            id: messageId,
+            id: newMessage.id,
             sender_id: senderId,
             receiver_id: receiverId,
             content,
-            is_read: 0,
-            created_at: new Date().toISOString()
+            is_read: false,
+            created_at: newMessage.created_at
         };
 
         // Emit to receiver
@@ -56,22 +57,20 @@ export const getMessages = async (req: AuthRequest, res: Response): Promise<void
     }
 
     try {
-        const stmt = database.prepare(`
+        const result = await query(`
             SELECT * FROM messages 
-            WHERE (sender_id = ? AND receiver_id = ?) 
-               OR (sender_id = ? AND receiver_id = ?)
+            WHERE (sender_id = $1 AND receiver_id = $2) 
+               OR (sender_id = $2 AND receiver_id = $1)
             ORDER BY created_at ASC
-        `);
-        const messages = stmt.all(userId, otherUserId, otherUserId, userId);
+        `, [userId, otherUserId]);
 
         // Mark as read
-        const updateStmt = database.prepare(`
-            UPDATE messages SET is_read = 1 
-            WHERE receiver_id = ? AND sender_id = ? AND is_read = 0
-        `);
-        updateStmt.run(userId, otherUserId);
+        await query(`
+            UPDATE messages SET is_read = TRUE 
+            WHERE receiver_id = $1 AND sender_id = $2 AND is_read = FALSE
+        `, [userId, otherUserId]);
 
-        res.json({ data: messages });
+        res.json({ data: result.rows });
     } catch (err) {
         res.status(500).json({ message: 'Failed to fetch messages' });
     }
@@ -88,20 +87,20 @@ export const getChats = async (req: AuthRequest, res: Response): Promise<void> =
     try {
         // This query finds all unique users the current user has chatted with
         // and returns their info along with the last message
-        const stmt = database.prepare(`
+        const result = await query(`
             WITH LastMessages AS (
                 SELECT 
-                    CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as other_user_id,
+                    CASE WHEN sender_id = $1 THEN receiver_id ELSE sender_id END as other_user_id,
                     content,
                     created_at,
                     is_read,
                     sender_id,
                     ROW_NUMBER() OVER (
-                        PARTITION BY CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END 
+                        PARTITION BY CASE WHEN sender_id = $1 THEN receiver_id ELSE sender_id END 
                         ORDER BY created_at DESC
                     ) as rn
                 FROM messages
-                WHERE sender_id = ? OR receiver_id = ?
+                WHERE sender_id = $1 OR receiver_id = $1
             )
             SELECT 
                 lm.other_user_id,
@@ -112,14 +111,13 @@ export const getChats = async (req: AuthRequest, res: Response): Promise<void> =
                 u.first_name,
                 u.last_name,
                 u.avatar,
-                (SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND sender_id = lm.other_user_id AND is_read = 0) as unread_count
+                (SELECT COUNT(*)::int FROM messages WHERE receiver_id = $1 AND sender_id = lm.other_user_id AND is_read = FALSE) as unread_count
             FROM LastMessages lm
             JOIN users u ON lm.other_user_id = u.id
             WHERE lm.rn = 1
             ORDER BY lm.created_at DESC
-        `);
-        const chats = stmt.all(userId, userId, userId, userId, userId);
-        res.json({ data: chats });
+        `, [userId]);
+        res.json({ data: result.rows });
     } catch (err) {
         console.error('Failed to fetch chats:', err);
         res.status(500).json({ message: 'Failed to fetch chats' });
@@ -136,11 +134,10 @@ export const markAsRead = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     try {
-        const stmt = database.prepare(`
-            UPDATE messages SET is_read = 1 
-            WHERE receiver_id = ? AND sender_id = ? AND is_read = 0
-        `);
-        stmt.run(userId, otherUserId);
+        await query(`
+            UPDATE messages SET is_read = TRUE 
+            WHERE receiver_id = $1 AND sender_id = $2 AND is_read = FALSE
+        `, [userId, otherUserId]);
         res.json({ message: 'Messages marked as read' });
     } catch (err) {
         res.status(500).json({ message: 'Failed to mark messages as read' });

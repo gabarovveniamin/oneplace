@@ -106,6 +106,8 @@ Thumbs.db
 
 # Database files
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
 *.db
 
 # Docker

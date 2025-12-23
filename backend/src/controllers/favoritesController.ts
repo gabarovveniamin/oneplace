@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
-import database from '../config/database';
+import { query } from '../config/database';
 
 export const addToFavorites = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
@@ -12,12 +12,12 @@ export const addToFavorites = async (req: AuthRequest, res: Response): Promise<v
     }
 
     try {
-        const stmt = database.prepare('INSERT INTO favorites (user_id, job_id) VALUES (?, ?)');
-        stmt.run(userId, jobId);
+        await query('INSERT INTO favorites (user_id, job_id) VALUES ($1, $2)', [userId, jobId]);
         res.status(201).json({ message: 'Added to favorites' });
     } catch (err: unknown) {
         const error = err as any;
-        if (error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
+        // Postgres unique constraint violation code
+        if (error.code === '23505') {
             res.status(400).json({ message: 'Already in favorites' });
         } else {
             res.status(500).json({ message: 'Failed to add to favorites' });
@@ -35,10 +35,9 @@ export const removeFromFavorites = async (req: AuthRequest, res: Response): Prom
     }
 
     try {
-        const stmt = database.prepare('DELETE FROM favorites WHERE user_id = ? AND job_id = ?');
-        const result = stmt.run(userId, jobId);
+        const result = await query('DELETE FROM favorites WHERE user_id = $1 AND job_id = $2', [userId, jobId]);
 
-        if (result.changes > 0) {
+        if (result.rowCount > 0) {
             res.json({ message: 'Removed from favorites' });
         } else {
             res.status(404).json({ message: 'Favorite not found' });
@@ -57,19 +56,16 @@ export const getFavorites = async (req: AuthRequest, res: Response): Promise<voi
     }
 
     try {
-        const stmt = database.prepare(`
+        const result = await query(`
             SELECT j.*, u.id as posted_by_id, u.first_name, u.last_name, u.email
             FROM jobs j
             JOIN favorites f ON j.id = f.job_id
             LEFT JOIN users u ON j.posted_by = u.id
-            WHERE f.user_id = ?
+            WHERE f.user_id = $1
             ORDER BY f.created_at DESC
-        `);
+        `, [userId]);
 
-        const rows = stmt.all(userId);
-
-        // Map database rows to response objects (similar to jobController)
-        const jobs = rows.map((row: Record<string, any>) => ({
+        const jobs = result.rows.map((row: Record<string, any>) => ({
             id: row.id,
             title: row.title,
             company: row.company,
@@ -77,9 +73,9 @@ export const getFavorites = async (req: AuthRequest, res: Response): Promise<voi
             location: row.location,
             type: row.type,
             description: row.description,
-            tags: row.tags ? JSON.parse(row.tags) : [],
+            tags: Array.isArray(row.tags) ? row.tags : (row.tags ? JSON.parse(row.tags) : []),
             logo: row.logo,
-            postedBy: row.posted_by, // Legacy ID field
+            postedBy: row.posted_by,
             postedByUser: {
                 id: row.posted_by_id,
                 firstName: row.first_name,
@@ -92,8 +88,6 @@ export const getFavorites = async (req: AuthRequest, res: Response): Promise<voi
             applications: row.applications,
             expiresAt: row.expires_at,
             createdAt: row.created_at,
-
-            // Extended fields
             specialization: row.specialization,
             industry: row.industry,
             region: row.region,
@@ -122,9 +116,8 @@ export const getFavoriteIds = async (req: AuthRequest, res: Response): Promise<v
     }
 
     try {
-        const stmt = database.prepare('SELECT job_id FROM favorites WHERE user_id = ?');
-        const rows = stmt.all(userId);
-        const ids = rows.map((row: Record<string, any>) => row.job_id);
+        const result = await query('SELECT job_id FROM favorites WHERE user_id = $1', [userId]);
+        const ids = result.rows.map((row: Record<string, any>) => row.job_id);
         res.json({ data: ids });
     } catch (err: unknown) {
         res.status(500).json({ message: 'Failed to fetch favorite IDs' });
