@@ -16,6 +16,14 @@ export interface User {
   lastLogin?: Date;
   createdAt: Date;
   updatedAt: Date;
+  orgName?: string;
+  orgIndustry?: string;
+  orgLocation?: string;
+  orgDescription?: string;
+  orgWebsite?: string;
+  orgEmail?: string;
+  orgPhone?: string;
+  orgLogo?: string;
 }
 
 export interface CreateUserData {
@@ -32,6 +40,14 @@ export interface UpdateUserData {
   lastName?: string;
   phone?: string;
   avatar?: string;
+  orgName?: string;
+  orgIndustry?: string;
+  orgLocation?: string;
+  orgDescription?: string;
+  orgWebsite?: string;
+  orgEmail?: string;
+  orgPhone?: string;
+  orgLogo?: string;
 }
 
 // Генерация UUID для SQLite
@@ -62,7 +78,9 @@ export class UserModel {
     // Получаем созданного пользователя
     const result = await query(
       `SELECT id, email, first_name, last_name, phone, avatar, role, 
-              is_email_verified, is_active, last_login, created_at, updated_at
+              is_email_verified, is_active, last_login, created_at, updated_at,
+              org_name, org_industry, org_location, org_description, 
+              org_website, org_email, org_phone, org_logo
        FROM users WHERE id = ?`,
       [id]
     );
@@ -75,7 +93,9 @@ export class UserModel {
     const passwordField = includePassword ? 'password, ' : '';
     const result = await query(
       `SELECT id, ${passwordField}email, first_name, last_name, phone, avatar, role,
-              is_email_verified, is_active, last_login, created_at, updated_at
+              is_email_verified, is_active, last_login, created_at, updated_at,
+              org_name, org_industry, org_location, org_description, 
+              org_website, org_email, org_phone, org_logo
        FROM users 
        WHERE email = ?`,
       [email]
@@ -92,7 +112,9 @@ export class UserModel {
   static async findById(id: string): Promise<User | null> {
     const result = await query(
       `SELECT id, email, first_name, last_name, phone, avatar, role,
-              is_email_verified, is_active, last_login, created_at, updated_at
+              is_email_verified, is_active, last_login, created_at, updated_at,
+              org_name, org_industry, org_location, org_description, 
+              org_website, org_email, org_phone, org_logo
        FROM users 
        WHERE id = ?`,
       [id]
@@ -127,6 +149,38 @@ export class UserModel {
     if (userData.avatar !== undefined) {
       fields.push('avatar = ?');
       values.push(userData.avatar);
+    }
+    if (userData.orgName !== undefined) {
+      fields.push('org_name = ?');
+      values.push(userData.orgName);
+    }
+    if (userData.orgIndustry !== undefined) {
+      fields.push('org_industry = ?');
+      values.push(userData.orgIndustry);
+    }
+    if (userData.orgLocation !== undefined) {
+      fields.push('org_location = ?');
+      values.push(userData.orgLocation);
+    }
+    if (userData.orgDescription !== undefined) {
+      fields.push('org_description = ?');
+      values.push(userData.orgDescription);
+    }
+    if (userData.orgWebsite !== undefined) {
+      fields.push('org_website = ?');
+      values.push(userData.orgWebsite);
+    }
+    if (userData.orgEmail !== undefined) {
+      fields.push('org_email = ?');
+      values.push(userData.orgEmail);
+    }
+    if (userData.orgPhone !== undefined) {
+      fields.push('org_phone = ?');
+      values.push(userData.orgPhone);
+    }
+    if (userData.orgLogo !== undefined) {
+      fields.push('org_logo = ?');
+      values.push(userData.orgLogo);
     }
 
     // Always update updated_at
@@ -196,7 +250,9 @@ export class UserModel {
   static async findAll(): Promise<User[]> {
     const result = await query(
       `SELECT id, email, first_name, last_name, phone, avatar, role,
-              is_email_verified, is_active, last_login, created_at, updated_at
+              is_email_verified, is_active, last_login, created_at, updated_at,
+              org_name, org_industry, org_location, org_description, 
+              org_website, org_email, org_phone, org_logo
        FROM users
        ORDER BY created_at DESC`
     );
@@ -229,6 +285,14 @@ export class UserModel {
       lastLogin: row.last_login ? new Date(row.last_login) : undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
+      orgName: row.org_name,
+      orgIndustry: row.org_industry,
+      orgLocation: row.org_location,
+      orgDescription: row.org_description,
+      orgWebsite: row.org_website,
+      orgEmail: row.org_email,
+      orgPhone: row.org_phone,
+      orgLogo: row.org_logo,
     };
   }
 }

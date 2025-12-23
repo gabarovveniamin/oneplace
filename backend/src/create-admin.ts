@@ -1,5 +1,5 @@
 
-import { UserModel } from '../models/User';
+import { UserModel } from './models/User';
 
 async function createAdmin() {
     try {

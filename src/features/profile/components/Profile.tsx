@@ -20,7 +20,8 @@ import {
   Plus,
   X,
   Lock,
-  Edit2
+  Edit2,
+  Building
 } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
 import { FavoritesSection } from "./FavoritesSection";
@@ -69,6 +70,17 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
     skills: [] as string[]
   });
 
+  const [orgData, setOrgData] = useState({
+    name: '',
+    industry: '',
+    location: '',
+    description: '',
+    website: '',
+    email: '',
+    phone: '',
+    logo: ''
+  });
+
   const [newSkill, setNewSkill] = useState('');
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -77,6 +89,8 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
     confirmPassword: ''
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -95,7 +109,20 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
         lastName: profileData.lastName,
         phone: profileData.phone || '+7 '
       });
-      // Load from localStorage
+      if (profileData.role === 'employer') {
+        setOrgData({
+          name: profileData.orgName || '',
+          industry: profileData.orgIndustry || '',
+          location: profileData.orgLocation || '',
+          description: profileData.orgDescription || '',
+          website: profileData.orgWebsite || '',
+          email: profileData.orgEmail || '',
+          phone: profileData.orgPhone || '',
+          logo: profileData.orgLogo || ''
+        });
+      }
+
+      // Load from localStorage for skills/extra info only
       const savedLocal = localStorage.getItem(`profile_${profileData.id}`);
       if (savedLocal) {
         setLocalData(JSON.parse(savedLocal));
@@ -119,57 +146,122 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
     setIsEditing(!isEditing);
     setSuccess(null);
     setError(null);
+    setFieldErrors({}); // Clear field errors on toggle
   };
 
   const handleSaveProfile = async () => {
     try {
       setSaving(true);
       setError(null);
+      setFieldErrors({});
+
+      let hasErrors = false;
+      const newFieldErrors: Record<string, string> = {};
 
       // Validate required fields
-      if (!editedData.firstName || !editedData.lastName) {
-        setError('Имя и фамилия обязательны для заполнения');
-        setSaving(false);
-        return;
+      if (!editedData.firstName?.trim()) {
+        newFieldErrors.firstName = 'Имя обязательно для заполнения';
+        hasErrors = true;
+      }
+      if (!editedData.lastName?.trim()) {
+        newFieldErrors.lastName = 'Фамилия обязательна для заполнения';
+        hasErrors = true;
       }
 
-      // Validate contact info if in editing mode
+      // Validate contact info
       if (!editedData.phone || !editedData.phone.trim()) {
-        setError('Номер телефона обязателен для заполнения');
+        newFieldErrors.phone = 'Номер телефона обязателен';
+        hasErrors = true;
+      } else {
+        const cleaned = editedData.phone.replace(/\D/g, '');
+        if (cleaned.length > 0 && cleaned.length < 11) {
+          newFieldErrors.phone = `Доработайте номер: не хватает ${11 - cleaned.length} цифр`;
+          hasErrors = true;
+        }
+      }
+
+      if (user?.role === 'user') {
+        if (!localData.location?.trim()) {
+          newFieldErrors.location = 'Местоположение обязательно';
+          hasErrors = true;
+        }
+        if (!localData.experience?.trim()) {
+          newFieldErrors.experience = 'Опыт работы обязателен';
+          hasErrors = true;
+        }
+      }
+
+      if (user?.role === 'employer') {
+        if (!orgData.name?.trim()) {
+          newFieldErrors.orgName = 'Название компании обязательно';
+          hasErrors = true;
+        }
+
+        if (orgData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orgData.email)) {
+          newFieldErrors.orgEmail = 'Некорректный формат Email';
+          hasErrors = true;
+        }
+
+        if (orgData.website && !/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(orgData.website)) {
+          newFieldErrors.orgWebsite = 'Некорректный формат сайта (нужно: https://example.com)';
+          hasErrors = true;
+        }
+
+        if (orgData.phone) {
+          const cleaned = orgData.phone.replace(/\D/g, '');
+          if (cleaned.length > 0 && cleaned.length < 11) {
+            newFieldErrors.orgPhone = `Доработайте номер: не хватает ${11 - cleaned.length} цифр`;
+            hasErrors = true;
+          }
+        }
+      }
+
+      if (hasErrors) {
+        setFieldErrors(newFieldErrors);
+        setError('Пожалуйста, доработайте поля, отмеченные красным');
         setSaving(false);
         return;
       }
 
-      if (!localData.location || !localData.location.trim()) {
-        setError('Местоположение обязательно для заполнения');
-        setSaving(false);
-        return;
-      }
-
-      if (!localData.experience || !localData.experience.trim()) {
-        setError('Опыт работы обязателен для заполнения');
-        setSaving(false);
-        return;
-      }
-
-      // Clean phone number - extract only digits
       const cleanedPhone = editedData.phone.replace(/\D/g, '');
-
-      // Only send fields that backend accepts
       const updateData: any = {
         firstName: editedData.firstName.trim(),
         lastName: editedData.lastName.trim(),
-        phone: cleanedPhone // Send only digits
+        phone: cleanedPhone
       };
+
+      if (user?.role === 'employer') {
+        updateData.orgName = orgData.name;
+        updateData.orgIndustry = orgData.industry;
+        updateData.orgLocation = orgData.location;
+        updateData.orgDescription = orgData.description;
+        updateData.orgWebsite = orgData.website;
+        updateData.orgEmail = orgData.email;
+        updateData.orgPhone = orgData.phone.replace(/\D/g, ''); // Clean org phone
+        updateData.orgLogo = orgData.logo;
+      }
 
       console.log('Sending update data:', updateData);
       const updatedProfile = await authApiService.updateProfile(updateData);
       console.log('Updated profile:', updatedProfile);
 
       setUser(updatedProfile);
+
+      // Update local orgData with fresh data from server
+      setOrgData({
+        name: updatedProfile.orgName || '',
+        industry: updatedProfile.orgIndustry || '',
+        location: updatedProfile.orgLocation || '',
+        description: updatedProfile.orgDescription || '',
+        website: updatedProfile.orgWebsite || '',
+        email: updatedProfile.orgEmail || '',
+        phone: updatedProfile.orgPhone || '',
+        logo: updatedProfile.orgLogo || ''
+      });
+
       setIsEditing(false);
 
-      // Save local data to localStorage
+      // Save extra local data (position, bio, etc) to localStorage
       if (user) {
         localStorage.setItem(`profile_${user.id}`, JSON.stringify(localData));
       }
@@ -279,47 +371,66 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
 
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits
-    const cleaned = value.replace(/\D/g, '');
+    let cleaned = value.replace(/\D/g, '');
 
-    // Always start with +7
-    if (cleaned.length === 0) return '+7 ';
+    if (cleaned === '') return '';
+
+    // If it starts with 8, change to 7
+    if (cleaned.startsWith('8')) {
+      cleaned = '7' + cleaned.substring(1);
+    }
+
+    // If it doesn't start with 7, assume it's the number without country code
+    if (!cleaned.startsWith('7') && cleaned.length > 0) {
+      cleaned = '7' + cleaned;
+    }
+
+    // Limit to 11 digits (7 + 10 digits)
+    cleaned = cleaned.substring(0, 11);
 
     // Format: +7 (XXX) XXX-XX-XX
-    let formatted = '+7 ';
+    let formatted = '+7';
 
     if (cleaned.length > 1) {
-      const withoutCountryCode = cleaned.substring(1); // Remove the '7' from beginning
-
-      // Add area code with parentheses
-      if (withoutCountryCode.length > 0) {
-        formatted += '(' + withoutCountryCode.substring(0, 3);
-      }
-      if (withoutCountryCode.length >= 3) {
-        formatted += ') ' + withoutCountryCode.substring(3, 6);
-      }
-      if (withoutCountryCode.length >= 6) {
-        formatted += '-' + withoutCountryCode.substring(6, 8);
-      }
-      if (withoutCountryCode.length >= 8) {
-        formatted += '-' + withoutCountryCode.substring(8, 10);
-      }
+      formatted += ' (' + cleaned.substring(1, 4);
+    }
+    if (cleaned.length > 4) {
+      formatted += ') ' + cleaned.substring(4, 7);
+    }
+    if (cleaned.length > 7) {
+      formatted += '-' + cleaned.substring(7, 9);
+    }
+    if (cleaned.length > 9) {
+      formatted += '-' + cleaned.substring(9, 11);
     }
 
     return formatted;
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-
-    // If user tries to delete +7, restore it
-    if (value.length < 3) {
-      setEditedData({ ...editedData, phone: '+7 ' });
-      return;
+    let value = e.target.value;
+    if (value.length > 0 && !value.startsWith('+')) {
+      value = '+' + value;
     }
-
-    // Format the phone number
     const formatted = formatPhoneNumber(value);
     setEditedData({ ...editedData, phone: formatted });
+  };
+
+  const handleOrgPhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    if (value.length > 0 && !value.startsWith('+')) {
+      value = '+' + value;
+    }
+    const formatted = formatPhoneNumber(value);
+    setOrgData({ ...orgData, phone: formatted });
+  };
+
+  const onPhoneFocus = (field: 'user' | 'org') => {
+    if (field === 'user' && (!editedData.phone || editedData.phone.trim() === '')) {
+      setEditedData({ ...editedData, phone: '+7' });
+    } else if (field === 'org' && (!orgData.phone || orgData.phone.trim() === '')) {
+      setOrgData({ ...orgData, phone: '+7' });
+    }
   };
 
   const handleLogout = () => {
@@ -443,8 +554,9 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                             value={editedData.firstName}
                             onChange={(e) => setEditedData({ ...editedData, firstName: e.target.value })}
                             placeholder="Имя"
-                            className="text-xl font-bold h-12"
+                            className={`text-xl font-bold h-12 ${fieldErrors.firstName ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}`}
                           />
+                          {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.firstName}</p>}
                         </div>
                         <div className="flex-1">
                           <Label className="text-sm">Фамилия</Label>
@@ -452,8 +564,9 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                             value={editedData.lastName}
                             onChange={(e) => setEditedData({ ...editedData, lastName: e.target.value })}
                             placeholder="Фамилия"
-                            className="text-xl font-bold h-12"
+                            className={`text-xl font-bold h-12 ${fieldErrors.lastName ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}`}
                           />
+                          {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.lastName}</p>}
                         </div>
                       </div>
                       <div>
@@ -519,9 +632,12 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                     <Button
                       onClick={handleSaveProfile}
                       disabled={saving}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg 
+                                 shadow-[0_4px_0_0_#15803d] hover:shadow-[0_2px_0_0_#15803d] 
+                                 active:shadow-none active:translate-y-[4px] 
+                                 transition-all duration-75 flex items-center gap-2 border-b-4 border-green-800"
                     >
-                      <Save className="h-4 w-4 mr-2" />
+                      <Save className="h-4 w-4" />
                       {saving ? 'Сохранение...' : 'Сохранить'}
                     </Button>
                   </>
@@ -614,17 +730,20 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                     {/* Phone */}
                     <div className="flex items-start gap-3">
                       <Phone className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Телефон</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-muted-foreground">Телефон</p>
                         {isEditing ? (
-                          <Input
-                            type="tel"
-                            placeholder="+7 (___) ___-__-__ *"
-                            value={editedData.phone}
-                            onChange={handlePhoneChange}
-                            className="h-9"
-                            required
-                          />
+                          <div className="space-y-1">
+                            <Input
+                              type="tel"
+                              value={editedData.phone}
+                              onChange={handlePhoneChange}
+                              onFocus={() => onPhoneFocus('user')}
+                              placeholder="+7 (999) 000-00-00"
+                              className={fieldErrors.phone ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                            />
+                            {fieldErrors.phone && <p className="text-red-500 text-xs font-medium">{fieldErrors.phone}</p>}
+                          </div>
                         ) : (
                           <p className="text-sm">{user.phone || 'Не указан'}</p>
                         )}
@@ -768,6 +887,170 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                 </CardContent>
               </Card>
             </div>
+            {/* Organization Section (Employer Only) */}
+            {user.role === 'employer' && (
+              <div className="lg:col-span-3">
+                <Card className="shadow-sm border-2 border-blue-100 dark:border-blue-900/30">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-2">
+                        <Building className="h-6 w-6 text-blue-600" />
+                        <h2 className="text-xl font-bold">Организация</h2>
+                      </div>
+                      {!isEditing && (
+                        <Badge variant="outline" className="text-blue-600 border-blue-600">
+                          {orgData.name ? 'Зарегистрирована' : 'Не зарегистрирована'}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <>
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="space-y-4">
+                            <div>
+                              <Label>Название компании *</Label>
+                              <Input
+                                value={orgData.name}
+                                onChange={(e) => setOrgData({ ...orgData, name: e.target.value })}
+                                placeholder="ООО 'Вектор'"
+                                className={fieldErrors.orgName ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                              />
+                              {fieldErrors.orgName && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgName}</p>}
+                            </div>
+                            <div>
+                              <Label>Отрасль</Label>
+                              <Input
+                                value={orgData.industry}
+                                onChange={(e) => setOrgData({ ...orgData, industry: e.target.value })}
+                                placeholder="IT, Строительство, Образование..."
+                              />
+                            </div>
+                            <div>
+                              <Label>Расположение компании</Label>
+                              <Input
+                                value={orgData.location}
+                                onChange={(e) => setOrgData({ ...orgData, location: e.target.value })}
+                                placeholder="Москва, Пресненская наб., 12"
+                              />
+                            </div>
+                            <div>
+                              <Label>Сайт</Label>
+                              <Input
+                                value={orgData.website}
+                                onChange={(e) => setOrgData({ ...orgData, website: e.target.value })}
+                                placeholder="https://company.com"
+                                className={fieldErrors.orgWebsite ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                              />
+                              {fieldErrors.orgWebsite && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgWebsite}</p>}
+                            </div>
+                          </div>
+                          <div className="space-y-4">
+                            <div>
+                              <Label>Email для вакансий</Label>
+                              <Input
+                                value={orgData.email}
+                                onChange={(e) => setOrgData({ ...orgData, email: e.target.value })}
+                                placeholder="hr@company.com"
+                                className={fieldErrors.orgEmail ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                              />
+                              {fieldErrors.orgEmail && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgEmail}</p>}
+                            </div>
+                            <div>
+                              <Label>Контактный телефон компании</Label>
+                              <Input
+                                value={orgData.phone}
+                                onChange={handleOrgPhoneChange}
+                                onFocus={() => onPhoneFocus('org')}
+                                placeholder="+7 (999) 000-00-00"
+                                className={fieldErrors.orgPhone ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                              />
+                              {fieldErrors.orgPhone && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgPhone}</p>}
+                            </div>
+                            <div>
+                              <Label>Описание компании</Label>
+                              <Textarea
+                                value={orgData.description}
+                                onChange={(e) => setOrgData({ ...orgData, description: e.target.value })}
+                                placeholder="Расскажите о вашей компании, культуре и ценностях..."
+                                rows={4}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-8 flex justify-end">
+                          <Button
+                            onClick={handleSaveProfile}
+                            disabled={saving}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl 
+                                       shadow-[0_6px_0_0_#1d4ed8] hover:shadow-[0_2px_0_0_#1d4ed8] 
+                                       active:shadow-none active:translate-y-[6px] 
+                                       transition-all duration-75 flex items-center gap-3 text-lg border-b-4 border-blue-800"
+                          >
+                            <Save className="h-6 w-6" />
+                            {saving ? 'Сохранение...' : 'Сохранить данные организации'}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-6">
+                        {orgData.name ? (
+                          <div className="grid md:grid-cols-2 gap-8">
+                            <div>
+                              <div className="mb-4">
+                                <h3 className="font-bold text-lg">{orgData.name}</h3>
+                                <p className="text-blue-600 font-medium">{orgData.industry || 'Отрасль не указана'}</p>
+                              </div>
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                                  <span>{orgData.location || 'Адрес не указан'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Mail className="h-4 w-4 text-muted-foreground" />
+                                  <span>{orgData.email || 'Email не указан'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Phone className="h-4 w-4 text-muted-foreground" />
+                                  <span>{orgData.phone || 'Телефон не указан'}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground leading-relaxed italic">
+                                {orgData.description || 'Описание не добавлено'}
+                              </p>
+                              {orgData.website && (
+                                <a
+                                  href={orgData.website}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-block mt-4 text-sm text-blue-600 hover:underline"
+                                >
+                                  Перейти на сайт компании
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed border-gray-200">
+                            <p className="text-muted-foreground mb-4">Данные организации еще не заполнены</p>
+                            <Button
+                              variant="outline"
+                              onClick={handleEditToggle}
+                              className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Зарегистрировать организацию
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
           <ApplicationsSection onJobClick={onJobClick} />
           {(user.role === 'employer' || user.role === 'admin') && (

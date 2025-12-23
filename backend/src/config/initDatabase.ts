@@ -21,9 +21,33 @@ export const initializeDatabase = () => {
         is_active INTEGER DEFAULT 1,
         last_login TEXT,
         created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
+        updated_at TEXT DEFAULT (datetime('now')),
+        org_name TEXT,
+        org_industry TEXT,
+        org_location TEXT,
+        org_description TEXT,
+        org_website TEXT,
+        org_email TEXT,
+        org_phone TEXT,
+        org_logo TEXT
       )
     `);
+
+    // Миграция: добавление колонок организации, если их нет
+    const columns = [
+      'org_name', 'org_industry', 'org_location', 'org_description',
+      'org_website', 'org_email', 'org_phone', 'org_logo'
+    ];
+
+    const tableInfo = db.prepare("PRAGMA table_info(users)").all();
+    const existingColumns = tableInfo.map((col: any) => col.name);
+
+    columns.forEach(col => {
+      if (!existingColumns.includes(col)) {
+        console.log(`🚀 Adding column ${col} to users table...`);
+        db.exec(`ALTER TABLE users ADD COLUMN ${col} TEXT`);
+      }
+    });
 
     // Создание таблицы вакансий
     db.exec(`

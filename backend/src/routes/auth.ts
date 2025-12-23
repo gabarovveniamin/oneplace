@@ -24,14 +24,14 @@ router.put('/profile',
   authenticate,
   validate([
     body('firstName')
-      .optional()
+      .optional({ checkFalsy: true })
       .trim()
-      .isLength({ min: 1, max: 50 })
+      .isLength({ max: 50 })
       .withMessage('First name must be less than 50 characters'),
     body('lastName')
-      .optional()
+      .optional({ checkFalsy: true })
       .trim()
-      .isLength({ min: 1, max: 50 })
+      .isLength({ max: 50 })
       .withMessage('Last name must be less than 50 characters'),
     body('phone')
       .optional()
@@ -42,13 +42,41 @@ router.put('/profile',
         // Allow pure digits (which frontend sends now) OR formatted phone
         // Remove everything except digits and +
         const cleaned = value.replace(/[^0-9+]/g, '');
-        return cleaned.length >= 5 && cleaned.length <= 15;
+        return cleaned.length >= 1 && cleaned.length <= 15;
       })
       .withMessage('Please enter a valid phone number'),
     body('avatar')
       .optional()
       .isString()
       .withMessage('Avatar must be a string'),
+    body('orgName')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 100 })
+      .withMessage('Organization name must be less than 100 characters'),
+    body('orgIndustry')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 100 }),
+    body('orgLocation')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 200 }),
+    body('orgDescription')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isLength({ max: 2000 }),
+    body('orgWebsite')
+      .optional({ checkFalsy: true })
+      .trim(),
+    body('orgEmail')
+      .optional({ checkFalsy: true })
+      .trim()
+      .isEmail()
+      .withMessage('Invalid organization email'),
+    body('orgPhone')
+      .optional({ checkFalsy: true })
+      .trim()
   ]),
   updateProfile
 );

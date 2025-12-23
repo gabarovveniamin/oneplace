@@ -26,6 +26,14 @@ export interface UserResponse {
   isEmailVerified: boolean;
   lastLogin?: string;
   createdAt: string;
+  orgName?: string;
+  orgIndustry?: string;
+  orgLocation?: string;
+  orgDescription?: string;
+  orgWebsite?: string;
+  orgEmail?: string;
+  orgPhone?: string;
+  orgLogo?: string;
 }
 
 export interface AuthResponse {
@@ -75,6 +83,14 @@ export class AuthApiService {
     lastName?: string;
     phone?: string;
     avatar?: string;
+    orgName?: string;
+    orgIndustry?: string;
+    orgLocation?: string;
+    orgDescription?: string;
+    orgWebsite?: string;
+    orgEmail?: string;
+    orgPhone?: string;
+    orgLogo?: string;
   }): Promise<UserResponse> {
     const response = await apiClient.put<any>('/auth/profile', userData);
 

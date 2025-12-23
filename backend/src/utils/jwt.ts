@@ -9,7 +9,7 @@ export interface TokenPayload {
 
 export const generateToken = (payload: TokenPayload): string => {
   const options: SignOptions = {
-    expiresIn: config.jwt.expiresIn,
+    expiresIn: config.jwt.expiresIn as any,
   };
   return jwt.sign(payload, config.jwt.secret, options);
 };
@@ -20,7 +20,7 @@ export const verifyToken = (token: string): TokenPayload => {
 
 export const generateRefreshToken = (payload: TokenPayload): string => {
   const options: SignOptions = {
-    expiresIn: '30d', // Refresh token expires in 30 days
+    expiresIn: '30d' as any, // Refresh token expires in 30 days
   };
   return jwt.sign(payload, config.jwt.secret, options);
 };

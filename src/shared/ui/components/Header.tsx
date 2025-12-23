@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "./button";
 import { Input } from "./input";
-import { Search, User, Filter, X, ChevronDown } from "lucide-react";
+import { Search, User, Filter, X, ChevronDown, LogOut } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchFilters } from "../../../shared/types/job";
 import { UserResponse } from "../../../core/api/auth";
@@ -22,6 +22,7 @@ interface HeaderProps {
   onRegisterClick?: () => void;
   onProfileClick?: () => void;
   onAdminClick?: () => void;
+  onLogout?: () => void;
   currentUser?: UserResponse | null;
 }
 
@@ -38,6 +39,7 @@ export function Header({
   onRegisterClick,
   onProfileClick,
   onAdminClick,
+  onLogout,
   currentUser
 }: HeaderProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -166,10 +168,10 @@ export function Header({
                     <span className="text-sm font-medium text-foreground">
                       {currentUser.firstName} {currentUser.lastName}
                     </span>
-                    {currentUser.role === 'admin' && (
+                    {(currentUser.role === 'admin' || currentUser.email === 'admin@oneplace.com') && (
                       <Button
                         variant="ghost"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="bg-red-600 text-white hover:bg-red-700 font-bold px-4 py-2 rounded-lg transition-all shadow-lg hover:scale-105 active:scale-95"
                         onClick={() => onAdminClick?.()}
                       >
                         Админ панель
@@ -177,6 +179,14 @@ export function Header({
                     )}
                     <Button variant="outline" className="rounded-lg" onClick={onProfileClick}>
                       Профиль
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-red-600 px-2"
+                      onClick={onLogout}
+                      title="Выйти"
+                    >
+                      <LogOut className="h-5 w-5" />
                     </Button>
                   </div>
                 ) : (
@@ -212,7 +222,7 @@ export function Header({
                   {/* Регион */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Регион</label>
-                    <Select onValueChange={(value) => handleFilterChange('region', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('region', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите регион" />
                       </SelectTrigger>
@@ -239,7 +249,7 @@ export function Header({
                   {/* Опыт работы */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Опыт работы</label>
-                    <Select onValueChange={(value) => handleFilterChange('experience', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('experience', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите опыт" />
                       </SelectTrigger>
@@ -257,7 +267,7 @@ export function Header({
                   {/* Тип занятости */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Тип занятости</label>
-                    <Select onValueChange={(value) => handleFilterChange('employmentType', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('employmentType', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите тип" />
                       </SelectTrigger>
@@ -275,7 +285,7 @@ export function Header({
                   {/* Образование */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Образование</label>
-                    <Select onValueChange={(value) => handleFilterChange('education', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('education', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите образование" />
                       </SelectTrigger>
@@ -293,7 +303,7 @@ export function Header({
                   {/* Зарплата */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Зарплата от</label>
-                    <Select onValueChange={(value) => handleFilterChange('salaryFrom', parseInt(value))}>
+                    <Select onValueChange={(value: string) => handleFilterChange('salaryFrom', parseInt(value))}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите зарплату" />
                       </SelectTrigger>
@@ -315,7 +325,7 @@ export function Header({
                   {/* Специализация */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Специализация</label>
-                    <Select onValueChange={(value) => handleFilterChange('specialization', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('specialization', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите специализацию" />
                       </SelectTrigger>
@@ -342,7 +352,7 @@ export function Header({
                   {/* График работы */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">График работы</label>
-                    <Select onValueChange={(value) => handleFilterChange('schedule', value)}>
+                    <Select onValueChange={(value: string) => handleFilterChange('schedule', value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Выберите график" />
                       </SelectTrigger>

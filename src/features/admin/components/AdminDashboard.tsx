@@ -10,7 +10,11 @@ import { Badge } from "../../../shared/ui/components/badge";
 import { Trash2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "../../../shared/ui/components/alert";
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+    onBack?: () => void;
+}
+
+export function AdminDashboard({ onBack }: AdminDashboardProps) {
     const [activeTab, setActiveTab] = useState("users");
     const [users, setUsers] = useState<UserResponse[]>([]);
     const [jobs, setJobs] = useState<JobResponse[]>([]);
@@ -61,7 +65,14 @@ export function AdminDashboard() {
 
     return (
         <div className="container mx-auto py-10 px-4">
-            <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+            <div className="flex items-center justify-between mb-8">
+                <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+                {onBack && (
+                    <Button variant="outline" onClick={onBack}>
+                        Назад на главную
+                    </Button>
+                )}
+            </div>
 
             {error && (
                 <Alert variant="destructive" className="mb-6">

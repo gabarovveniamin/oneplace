@@ -178,6 +178,13 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  const handleLogout = () => {
+    authApiService.logout();
+    setCurrentUser(null);
+    setCurrentView('home');
+    window.location.hash = '';
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header на всех страницах */}
@@ -200,6 +207,7 @@ export default function App() {
         }}
         onProfileClick={handleProfileClick}
         onAdminClick={() => setCurrentView('admin')}
+        onLogout={handleLogout}
         currentUser={currentUser}
       />
 
@@ -249,7 +257,7 @@ export default function App() {
         )}
 
         {currentView === 'admin' && (
-          <AdminDashboard />
+          <AdminDashboard onBack={handleBackToHome} />
         )}
       </main>
 

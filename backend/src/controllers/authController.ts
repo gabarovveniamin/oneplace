@@ -176,6 +176,14 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
           isEmailVerified: user.isEmailVerified,
           lastLogin: user.lastLogin,
           createdAt: user.createdAt,
+          orgName: user.orgName,
+          orgIndustry: user.orgIndustry,
+          orgLocation: user.orgLocation,
+          orgDescription: user.orgDescription,
+          orgWebsite: user.orgWebsite,
+          orgEmail: user.orgEmail,
+          orgPhone: user.orgPhone,
+          orgLogo: user.orgLogo,
         },
       },
     });
@@ -188,7 +196,7 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
 export const updateProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user as User;
-    const { firstName, lastName, phone, avatar } = req.body;
+    const { firstName, lastName, phone, avatar, orgName, orgIndustry, orgLocation, orgDescription, orgWebsite, orgEmail, orgPhone, orgLogo } = req.body;
 
     console.log('updateProfile controller called with body:', req.body);
 
@@ -198,6 +206,14 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     if (lastName !== undefined) updateData.lastName = lastName;
     if (phone !== undefined) updateData.phone = phone;
     if (avatar !== undefined) updateData.avatar = avatar;
+    if (orgName !== undefined) updateData.orgName = orgName;
+    if (orgIndustry !== undefined) updateData.orgIndustry = orgIndustry;
+    if (orgLocation !== undefined) updateData.orgLocation = orgLocation;
+    if (orgDescription !== undefined) updateData.orgDescription = orgDescription;
+    if (orgWebsite !== undefined) updateData.orgWebsite = orgWebsite;
+    if (orgEmail !== undefined) updateData.orgEmail = orgEmail;
+    if (orgPhone !== undefined) updateData.orgPhone = orgPhone;
+    if (orgLogo !== undefined) updateData.orgLogo = orgLogo;
 
     console.log('Constructed updateData:', updateData);
 
@@ -226,6 +242,14 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
           isEmailVerified: updatedUser.isEmailVerified,
           lastLogin: updatedUser.lastLogin,
           createdAt: updatedUser.createdAt,
+          orgName: updatedUser.orgName,
+          orgIndustry: updatedUser.orgIndustry,
+          orgLocation: updatedUser.orgLocation,
+          orgDescription: updatedUser.orgDescription,
+          orgWebsite: updatedUser.orgWebsite,
+          orgEmail: updatedUser.orgEmail,
+          orgPhone: updatedUser.orgPhone,
+          orgLogo: updatedUser.orgLogo,
         },
       },
     });
