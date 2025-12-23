@@ -113,7 +113,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Специализация</Label>
                   <Select
                     value={filters.specialization || ''}
-                    onValueChange={(value) => handleFilterChange('specialization', value)}
+                    onValueChange={(value: string) => handleFilterChange('specialization', value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите специализацию" />
@@ -133,7 +133,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Отрасль</Label>
                   <Select
                     value={filters.industry || ''}
-                    onValueChange={(value) => handleFilterChange('industry', value)}
+                    onValueChange={(value: string) => handleFilterChange('industry', value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите отрасль" />
@@ -153,7 +153,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Регион</Label>
                   <Select
                     value={filters.region || ''}
-                    onValueChange={(value) => handleFilterChange('region', value)}
+                    onValueChange={(value: string) => handleFilterChange('region', value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите регион" />
@@ -195,7 +195,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Частота выплат</Label>
                   <Select
                     value={filters.salaryFrequency || ''}
-                    onValueChange={(value) => handleFilterChange('salaryFrequency', value as any)}
+                    onValueChange={(value: string) => handleFilterChange('salaryFrequency', value as any)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите частоту" />
@@ -215,7 +215,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Образование</Label>
                   <Select
                     value={filters.education || ''}
-                    onValueChange={(value) => handleFilterChange('education', value as any)}
+                    onValueChange={(value: string) => handleFilterChange('education', value as any)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите образование" />
@@ -235,7 +235,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Опыт работы</Label>
                   <Select
                     value={filters.experience || ''}
-                    onValueChange={(value) => handleFilterChange('experience', value as any)}
+                    onValueChange={(value: string) => handleFilterChange('experience', value as any)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите опыт" />
@@ -255,7 +255,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Тип занятости</Label>
                   <Select
                     value={filters.employmentType || ''}
-                    onValueChange={(value) => handleFilterChange('employmentType', value as any)}
+                    onValueChange={(value: string) => handleFilterChange('employmentType', value as any)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите тип" />
@@ -275,7 +275,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>График работы</Label>
                   <Select
                     value={filters.schedule || ''}
-                    onValueChange={(value) => handleFilterChange('schedule', value as any)}
+                    onValueChange={(value: string) => handleFilterChange('schedule', value as any)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите график" />
@@ -308,7 +308,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <Label>Формат работы</Label>
                   <Select
                     value={filters.workFormat || ''}
-                    onValueChange={(value) => handleFilterChange('workFormat', value as any)}
+                    onValueChange={(value: string) => handleFilterChange('workFormat', value as any)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Выберите формат" />
@@ -333,7 +333,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(filters).map(([key, value]) => {
                       if (value === undefined || value === '') return null;
-                      
+
                       let displayValue = value;
                       if (key === 'education') {
                         displayValue = EDUCATION_LEVELS.find(e => e.value === value)?.label || value;

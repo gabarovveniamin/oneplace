@@ -5,7 +5,10 @@ import { config } from './config';
 const BetterSqlite3 = require('better-sqlite3');
 
 // Путь к файлу базы данных
-const dbPath = path.join(__dirname, '../../database.sqlite');
+// Путь к файлу базы данных
+// Using absolute path from process.cwd() (project root) to avoid relative path issues between src/ and dist/
+// Using absolute path from process.cwd() (project root) to avoid relative path issues between src/ and dist/
+const dbPath = path.resolve(process.cwd(), 'database.sqlite');
 
 // Создаем подключение к SQLite
 const db = new BetterSqlite3(dbPath, {
@@ -22,7 +25,7 @@ db.pragma('cache_size = -64000'); // 64MB кэша
 db.pragma('temp_store = MEMORY'); // Временные таблицы в памяти
 
 // Функция для выполнения запросов (совместимость с PostgreSQL API)
-export const query = async (text: string, params?: any[]): Promise<any> => {
+export const query = async <T = any>(text: string, params?: (string | number | boolean | null)[]): Promise<{ rows: T[], rowCount: number }> => {
   const start = Date.now();
   try {
     // Преобразуем PostgreSQL параметры ($1, $2) в SQLite (?, ?)
@@ -51,11 +54,14 @@ export const query = async (text: string, params?: any[]): Promise<any> => {
       console.log('Executed query', { text: sqliteQuery.substring(0, 100), duration, rows: result.rowCount });
     }
 
-    return result;
-  } catch (error) {
-    console.error('Database query error:', error);
-    console.error('Query:', text);
-    console.error('Params:', params);
+    return result as { rows: T[], rowCount: number };
+  } catch (err) {
+    const error = err as Error;
+    if (config.nodeEnv === 'development') {
+      console.error('Database query error:', error.message);
+      console.error('Query:', text);
+      console.error('Params:', params);
+    }
     throw error;
   }
 };
@@ -74,8 +80,10 @@ export const testConnection = async (): Promise<boolean> => {
     const result = await query("SELECT datetime('now') as now");
     console.log('✅ Database connected successfully:', result.rows[0]);
     return true;
-  } catch (error) {
-    console.error('❌ Database connection failed:', error);
+  } catch (err) {
+    if (config.nodeEnv === 'development') {
+      console.error('❌ Database connection failed:', err);
+    }
     return false;
   }
 };

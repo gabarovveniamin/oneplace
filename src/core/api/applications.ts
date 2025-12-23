@@ -29,14 +29,13 @@ export const applicationsApiService = {
     // Get my applications (candidate)
     getMyApplications: async (): Promise<Application[]> => {
         const response = await apiClient.get<Application[]>('/applications/my');
-        // Unwrapping { data: [] }
-        return (response as any).data;
+        return response.data;
     },
 
     // Get applications for employer's jobs
     getEmployerApplications: async (): Promise<Application[]> => {
         const response = await apiClient.get<Application[]>('/applications/employer');
-        return (response as any).data;
+        return response.data;
     },
 
     // Update application status

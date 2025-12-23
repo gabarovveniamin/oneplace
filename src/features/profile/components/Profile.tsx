@@ -16,23 +16,36 @@ import {
   AlertCircle,
   CheckCircle,
   Save,
-  Download,
   Plus,
   X,
   Lock,
   Edit2,
-  Building
+  Building,
+  User as UserIcon,
+  ClipboardList,
+  Heart,
+  MessageSquare
 } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
+import { ApiError } from '../../../core/api';
 import { FavoritesSection } from "./FavoritesSection";
 import { ApplicationsSection } from "./ApplicationsSection";
 import { EmployerApplicationsSection } from "./EmployerApplicationsSection";
 import { Job } from "../../../shared/types/job";
+import { cn } from "../../../shared/ui/components/utils";
+
+import { resumeApiService } from '../../../core/api/resume';
+import { ChatWindow } from "../../chat/components/ChatWindow";
+import { Chat } from '../../../core/api/chat';
 
 interface ProfileProps {
   onBack: () => void;
   onAdminClick?: () => void;
   onJobClick: (job: Job) => void;
+  onCreateResume?: () => void;
+  onShowResume?: () => void;
+  userId?: string;
+  onChatOpen?: (chat: Chat) => void;
 }
 
 interface UserProfile {
@@ -47,12 +60,19 @@ interface UserProfile {
   lastLogin?: string;
 }
 
-export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
+export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onShowResume, userId, onChatOpen }: ProfileProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [hasResume, setHasResume] = useState(false);
+
+  // Determine if we are viewing our own profile
+  // If userId is undefined, we assume it's the current user (own profile)
+  // But we need to verify against the actual logged-in user ID to be sure
+  const currentUser = authApiService.getCurrentUser();
+  const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({
@@ -61,7 +81,7 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
     phone: ''
   });
 
-  // Local state for additional info (not saved to backend yet)
+  // Local state for additional info
   const [localData, setLocalData] = useState({
     position: '',
     bio: '',
@@ -94,15 +114,17 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<'info' | 'applications' | 'favorites'>('info');
 
   useEffect(() => {
     loadProfile();
-  }, []);
+  }, [userId]);
 
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const profileData = await authApiService.getProfile();
+      // Fetch the specific user's profile
+      const profileData = await authApiService.getProfile(userId);
       setUser(profileData);
       setEditedData({
         firstName: profileData.firstName,
@@ -122,13 +144,44 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
         });
       }
 
-      // Load from localStorage for skills/extra info only
-      const savedLocal = localStorage.getItem(`profile_${profileData.id}`);
-      if (savedLocal) {
-        setLocalData(JSON.parse(savedLocal));
+      // Handle extra data (Bio, Skills, etc.) via Resume or LocalStorage
+      if (isOwnProfile) {
+        // Own profile: Load from localStorage
+        const savedLocal = localStorage.getItem(`profile_${profileData.id}`);
+        if (savedLocal) {
+          setLocalData(JSON.parse(savedLocal));
+        }
       }
+
+      // Always try to fetch resume to check existence and/or populate data
+      // Check for resume (allow for all roles to view, but only 'user' typically has one)
+      if (profileData.role === 'user') {
+        try {
+          const resume = await resumeApiService.getResume(userId);
+          if (resume) {
+            setHasResume(true);
+            // If viewing someone else, populate the "Profile" view with data from their Resume
+            if (!isOwnProfile) {
+              setLocalData({
+                position: resume.title,
+                bio: resume.summary,
+                location: resume.city,
+                experience: resume.experience?.[0]?.company || '', // Simplified for profile view
+                skills: resume.skills || []
+              });
+            }
+          } else {
+            setHasResume(false);
+          }
+        } catch (e) {
+          console.warn('Failed to load resume or no resume exists', e);
+          setHasResume(false);
+        }
+      }
+
     } catch (err: any) {
-      setError(err?.message || 'Не удалось загрузить профиль');
+      const apiError = err as ApiError;
+      setError(apiError.message || 'Не удалось загрузить профиль');
     } finally {
       setLoading(false);
     }
@@ -243,7 +296,6 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
 
       console.log('Sending update data:', updateData);
       const updatedProfile = await authApiService.updateProfile(updateData);
-      console.log('Updated profile:', updatedProfile);
 
       setUser(updatedProfile);
 
@@ -269,8 +321,8 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
       setSuccess('✅ Профиль успешно сохранен!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
-      console.error('Error saving profile:', err);
-      setError(err?.response?.data?.message || err?.message || 'Не удалось сохранить профиль');
+      const apiError = err as ApiError;
+      setError(apiError.message || 'Не удалось сохранить профиль');
     } finally {
       setSaving(false);
     }
@@ -527,19 +579,23 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all"
-                >
-                  <Camera className="h-5 w-5" />
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="hidden"
-                />
+                {isOwnProfile && (
+                  <>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-2 right-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all"
+                    >
+                      <Camera className="h-5 w-5" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                  </>
+                )}
               </div>
 
               {/* Name and Position */}
@@ -596,28 +652,57 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
               <div className="flex gap-2 pt-4">
                 {!isEditing ? (
                   <>
-                    <Button
-                      onClick={handleEditToggle}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Edit2 className="h-4 w-4 mr-2" />
-                      Редактировать
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowPasswordChange(!showPasswordChange)}
-                    >
-                      <Lock className="h-4 w-4 mr-2" />
-                      Пароль
-                    </Button>
-                    {user.role === 'admin' && onAdminClick && (
+                    {/* Only show Message button if NOT own profile */}
+                    {!isOwnProfile && (
                       <Button
-                        variant="destructive"
-                        onClick={onAdminClick}
-                        className="bg-red-600 hover:bg-red-700 text-white ml-2"
+                        onClick={() => {
+                          if (user && onChatOpen) {
+                            onChatOpen({
+                              other_user_id: user.id,
+                              first_name: user.firstName,
+                              last_name: user.lastName,
+                              avatar: user.avatar || null,
+                              last_message: '',
+                              last_message_at: new Date().toISOString(),
+                              is_read: 1,
+                              sender_id: '',
+                              unread_count: 0
+                            });
+                          }
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
                       >
-                        Админ
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Написать
                       </Button>
+                    )}
+
+                    {isOwnProfile && (
+                      <>
+                        <Button
+                          onClick={handleEditToggle}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Редактировать
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowPasswordChange(!showPasswordChange)}
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          Пароль
+                        </Button>
+                        {user.role === 'admin' && onAdminClick && (
+                          <Button
+                            variant="destructive"
+                            onClick={onAdminClick}
+                            className="bg-red-600 hover:bg-red-700 text-white ml-2"
+                          >
+                            Админ
+                          </Button>
+                        )}
+                      </>
                     )}
                   </>
                 ) : (
@@ -633,9 +718,9 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
                       onClick={handleSaveProfile}
                       disabled={saving}
                       className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg 
-                                 shadow-[0_4px_0_0_#15803d] hover:shadow-[0_2px_0_0_#15803d] 
-                                 active:shadow-none active:translate-y-[4px] 
-                                 transition-all duration-75 flex items-center gap-2 border-b-4 border-green-800"
+                                   shadow-[0_4px_0_0_#15803d] hover:shadow-[0_2px_0_0_#15803d] 
+                                   active:shadow-none active:translate-y-[4px] 
+                                   transition-all duration-75 flex items-center gap-2 border-b-4 border-green-800"
                     >
                       <Save className="h-4 w-4" />
                       {saving ? 'Сохранение...' : 'Сохранить'}
@@ -647,20 +732,19 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
           </div>
         </div>
 
-        {/* Password Change Section */}
-        {showPasswordChange && (
+        {/* Password Change Section - Only Owner */}
+        {showPasswordChange && isOwnProfile && (
           <div className="px-4 sm:px-6 lg:px-8 mt-6">
             <Card className="shadow-sm">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">Изменить пароль</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
                     onClick={() => setShowPasswordChange(false)}
+                    className="text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </div>
                 <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
                   {passwordError && (
@@ -706,357 +790,440 @@ export function Profile({ onBack, onAdminClick, onJobClick }: ProfileProps) {
           </div>
         )}
 
-        {/* Main Content Grid */}
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Left Column - Contact Info */}
-            <div className="lg:col-span-1 space-y-6">
-              <Card className="shadow-sm">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-6">
-                    Контактная информация
-                  </h2>
+        {/* Tab Navigation */}
+        <div className="px-4 sm:px-6 lg:px-8 mt-8">
+          <div className="flex overflow-x-auto border-b scrollbar-hide">
+            <button
+              onClick={() => setActiveSection('info')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                activeSection === 'info'
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+              )}
+            >
+              <UserIcon className="h-4 w-4" />
+              Профиль
+            </button>
 
-                  <div className="space-y-5">
-                    {/* Email */}
-                    <div className="flex items-start gap-3">
-                      <Mail className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-muted-foreground">Email</p>
-                        <p className="text-sm break-all">{user.email}</p>
+            {isOwnProfile && (
+              <>
+                <button
+                  onClick={() => setActiveSection('applications')}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                    activeSection === 'applications'
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                  )}
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  {user.role === 'employer' ? 'Отклики на вакансии' : 'Мои отклики'}
+                </button>
+
+                <button
+                  onClick={() => setActiveSection('favorites')}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                    activeSection === 'favorites'
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                  )}
+                >
+                  <Heart className="h-4 w-4" />
+                  Избранное
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="px-4 sm:px-6 lg:px-8 py-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {activeSection === 'info' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left Column - Contact Details */}
+              <div className="space-y-6">
+                <Card className="shadow-sm">
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Контактная информация</h2>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/10 flex items-center justify-center text-blue-600">
+                          <Mail className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-50">Email</p>
+                          <p className="font-medium">{user.email}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+                        <div className="w-10 h-10 rounded-lg bg-green-50 dark:bg-green-900/10 flex items-center justify-center text-green-600">
+                          <Phone className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-50">Телефон</p>
+                          {isEditing ? (
+                            <div className="space-y-1">
+                              <Input
+                                type="tel"
+                                value={editedData.phone}
+                                onChange={handlePhoneChange}
+                                onFocus={() => onPhoneFocus('user')}
+                                placeholder="+7 (999) 000-00-00"
+                                className={fieldErrors.phone ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                              />
+                              {fieldErrors.phone && <p className="text-red-500 text-xs font-medium">{fieldErrors.phone}</p>}
+                            </div>
+                          ) : (
+                            <p className="font-medium text-foreground">{user.phone || 'Не указан'}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+                        <div className="w-10 h-10 rounded-lg bg-orange-50 dark:bg-orange-900/10 flex items-center justify-center text-orange-600">
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-wider font-semibold opacity-50">Локация</p>
+                          {isEditing ? (
+                            <div className="space-y-1">
+                              <Input
+                                value={localData.location}
+                                onChange={(e) => setLocalData({ ...localData, location: e.target.value })}
+                                placeholder="Город"
+                                className={`h-8 mt-1 ${fieldErrors.location ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}`}
+                              />
+                              {fieldErrors.location && <p className="text-red-500 text-xs font-medium">{fieldErrors.location}</p>}
+                            </div>
+                          ) : (
+                            <p className="font-medium text-foreground">{localData.location || 'Не указана'}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Phone */}
-                    <div className="flex items-start gap-3">
-                      <Phone className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-muted-foreground">Телефон</p>
-                        {isEditing ? (
-                          <div className="space-y-1">
-                            <Input
-                              type="tel"
-                              value={editedData.phone}
-                              onChange={handlePhoneChange}
-                              onFocus={() => onPhoneFocus('user')}
-                              placeholder="+7 (999) 000-00-00"
-                              className={fieldErrors.phone ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
-                            />
-                            {fieldErrors.phone && <p className="text-red-500 text-xs font-medium">{fieldErrors.phone}</p>}
-                          </div>
-                        ) : (
-                          <p className="text-sm">{user.phone || 'Не указан'}</p>
-                        )}
-                      </div>
-                    </div>
+                    <div className="mt-8 space-y-3">
+                      {user.role === 'user' && !userId && (
+                        <>
+                          {!hasResume ? (
+                            <Button
+                              onClick={onCreateResume}
+                              className="w-full bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Создать резюме
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              onClick={onShowResume}
+                              className="w-full"
+                            >
+                              <Briefcase className="h-4 w-4 mr-2" />
+                              Посмотреть резюме
+                            </Button>
+                          )}
+                        </>
+                      )}
 
-                    {/* Location */}
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Местоположение</p>
-                        {isEditing ? (
-                          <Input
-                            placeholder="Москва, Россия *"
-                            value={localData.location}
-                            onChange={(e) => setLocalData({ ...localData, location: e.target.value })}
-                            className="h-9"
-                            required
-                          />
-                        ) : (
-                          <p className="text-sm">{localData.location || 'Не указано'}</p>
-                        )}
-                      </div>
+                      {isOwnProfile && (
+                        <Button
+                          variant="outline"
+                          onClick={handleLogout}
+                          className="w-full text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
+                        >
+                          Выйти из аккаунта
+                        </Button>
+                      )}
                     </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-                    {/* Experience */}
-                    <div className="flex items-start gap-3">
-                      <Briefcase className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Опыт работы</p>
-                        {isEditing ? (
+              {/* Right Column - About & Skills */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* About Section */}
+                <Card className="shadow-sm">
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">О себе</h2>
+                    {isEditing ? (
+                      <Textarea
+                        placeholder="Расскажите о себе, своих интересах или опыте работы..."
+                        value={localData.bio}
+                        onChange={(e) => setLocalData({ ...localData, bio: e.target.value })}
+                        rows={6}
+                        className="resize-none"
+                      />
+                    ) : (
+                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                        {localData.bio || 'Информация не указана'}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Experience Section for Job Seeker */}
+                {user.role === 'user' && (
+                  <Card className="shadow-sm">
+                    <CardContent className="p-6">
+                      <h2 className="text-xl font-bold mb-4">Опыт работы</h2>
+                      {isEditing ? (
+                        <div className="space-y-1">
                           <Input
                             placeholder="5 лет *"
                             value={localData.experience}
                             onChange={(e) => setLocalData({ ...localData, experience: e.target.value })}
-                            className="h-9"
+                            className={`h-9 ${fieldErrors.experience ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}`}
                             required
                           />
-                        ) : (
-                          <p className="text-sm">{localData.experience || 'Не указано'}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                          {fieldErrors.experience && <p className="text-red-500 text-xs font-medium">{fieldErrors.experience}</p>}
+                        </div>
+                      ) : (
+                        <p className="text-sm font-medium">{localData.experience || 'Не указан'}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
-                  {/* Download Resume Button */}
-                  <Button
-                    variant="outline"
-                    className="w-full mt-6"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Скачать резюме
-                  </Button>
-
-                  {/* Logout Button */}
-                  <Button
-                    variant="outline"
-                    onClick={handleLogout}
-                    className="w-full mt-3 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
-                  >
-                    Выйти из аккаунта
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column - About & Skills */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* About Section */}
-              <Card className="shadow-sm">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">О себе</h2>
-                  {isEditing ? (
-                    <Textarea
-                      placeholder="Опытный frontend разработчик с 5-летним стажем. Специализируюсь на создании современных веб-приложений с использованием React и TypeScript..."
-                      value={localData.bio}
-                      onChange={(e) => setLocalData({ ...localData, bio: e.target.value })}
-                      rows={6}
-                      className="resize-none"
-                    />
-                  ) : (
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                      {localData.bio || 'Информация не указана'}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Skills Section */}
-              <Card className="shadow-sm">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">Навыки</h2>
-
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {localData.skills.map((skill, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 px-4 py-2 text-sm font-medium"
-                      >
-                        {skill}
-                        {isEditing && (
-                          <button
-                            onClick={() => handleRemoveSkill(skill)}
-                            className="ml-2 hover:text-red-600"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </Badge>
-                    ))}
-                    {localData.skills.length === 0 && (
-                      <p className="text-muted-foreground text-sm">
-                        {isEditing ? 'Добавьте свои навыки' : 'Навыки не указаны'}
-                      </p>
-                    )}
-                  </div>
-
-                  {isEditing && (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="React, TypeScript, Node.js..."
-                        value={newSkill}
-                        onChange={(e) => setNewSkill(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddSkill();
-                          }
-                        }}
-                      />
-                      <Button
-                        onClick={handleAddSkill}
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            {/* Organization Section (Employer Only) */}
-            {user.role === 'employer' && (
-              <div className="lg:col-span-3">
-                <Card className="shadow-sm border-2 border-blue-100 dark:border-blue-900/30">
+                {/* Skills Section */}
+                <Card className="shadow-sm">
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-2">
-                        <Building className="h-6 w-6 text-blue-600" />
-                        <h2 className="text-xl font-bold">Организация</h2>
-                      </div>
-                      {!isEditing && (
-                        <Badge variant="outline" className="text-blue-600 border-blue-600">
-                          {orgData.name ? 'Зарегистрирована' : 'Не зарегистрирована'}
-                        </Badge>
+                    <h2 className="text-xl font-bold mb-4">Навыки</h2>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {localData.skills.length > 0 ? (
+                        localData.skills.map((skill: string, index: number) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-200 px-4 py-2 text-sm font-medium"
+                          >
+                            {skill}
+                            {isEditing && (
+                              <button
+                                onClick={() => handleRemoveSkill(skill)}
+                                className="ml-2 hover:text-red-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </Badge>
+                        ))
+                      ) : (
+                        <p className="text-muted-foreground text-sm">
+                          {isEditing ? 'Добавьте свои навыки' : 'Навыки не указаны'}
+                        </p>
                       )}
                     </div>
 
-                    {isEditing ? (
-                      <>
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <div className="space-y-4">
-                            <div>
-                              <Label>Название компании *</Label>
-                              <Input
-                                value={orgData.name}
-                                onChange={(e) => setOrgData({ ...orgData, name: e.target.value })}
-                                placeholder="ООО 'Вектор'"
-                                className={fieldErrors.orgName ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
-                              />
-                              {fieldErrors.orgName && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgName}</p>}
-                            </div>
-                            <div>
-                              <Label>Отрасль</Label>
-                              <Input
-                                value={orgData.industry}
-                                onChange={(e) => setOrgData({ ...orgData, industry: e.target.value })}
-                                placeholder="IT, Строительство, Образование..."
-                              />
-                            </div>
-                            <div>
-                              <Label>Расположение компании</Label>
-                              <Input
-                                value={orgData.location}
-                                onChange={(e) => setOrgData({ ...orgData, location: e.target.value })}
-                                placeholder="Москва, Пресненская наб., 12"
-                              />
-                            </div>
-                            <div>
-                              <Label>Сайт</Label>
-                              <Input
-                                value={orgData.website}
-                                onChange={(e) => setOrgData({ ...orgData, website: e.target.value })}
-                                placeholder="https://company.com"
-                                className={fieldErrors.orgWebsite ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
-                              />
-                              {fieldErrors.orgWebsite && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgWebsite}</p>}
-                            </div>
-                          </div>
-                          <div className="space-y-4">
-                            <div>
-                              <Label>Email для вакансий</Label>
-                              <Input
-                                value={orgData.email}
-                                onChange={(e) => setOrgData({ ...orgData, email: e.target.value })}
-                                placeholder="hr@company.com"
-                                className={fieldErrors.orgEmail ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
-                              />
-                              {fieldErrors.orgEmail && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgEmail}</p>}
-                            </div>
-                            <div>
-                              <Label>Контактный телефон компании</Label>
-                              <Input
-                                value={orgData.phone}
-                                onChange={handleOrgPhoneChange}
-                                onFocus={() => onPhoneFocus('org')}
-                                placeholder="+7 (999) 000-00-00"
-                                className={fieldErrors.orgPhone ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
-                              />
-                              {fieldErrors.orgPhone && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgPhone}</p>}
-                            </div>
-                            <div>
-                              <Label>Описание компании</Label>
-                              <Textarea
-                                value={orgData.description}
-                                onChange={(e) => setOrgData({ ...orgData, description: e.target.value })}
-                                placeholder="Расскажите о вашей компании, культуре и ценностях..."
-                                rows={4}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-8 flex justify-end">
-                          <Button
-                            onClick={handleSaveProfile}
-                            disabled={saving}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl 
-                                       shadow-[0_6px_0_0_#1d4ed8] hover:shadow-[0_2px_0_0_#1d4ed8] 
-                                       active:shadow-none active:translate-y-[6px] 
-                                       transition-all duration-75 flex items-center gap-3 text-lg border-b-4 border-blue-800"
-                          >
-                            <Save className="h-6 w-6" />
-                            {saving ? 'Сохранение...' : 'Сохранить данные организации'}
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-6">
-                        {orgData.name ? (
-                          <div className="grid md:grid-cols-2 gap-8">
-                            <div>
-                              <div className="mb-4">
-                                <h3 className="font-bold text-lg">{orgData.name}</h3>
-                                <p className="text-blue-600 font-medium">{orgData.industry || 'Отрасль не указана'}</p>
-                              </div>
-                              <div className="space-y-3">
-                                <div className="flex items-center gap-2 text-sm">
-                                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                                  <span>{orgData.location || 'Адрес не указан'}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Mail className="h-4 w-4 text-muted-foreground" />
-                                  <span>{orgData.email || 'Email не указан'}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <Phone className="h-4 w-4 text-muted-foreground" />
-                                  <span>{orgData.phone || 'Телефон не указан'}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground leading-relaxed italic">
-                                {orgData.description || 'Описание не добавлено'}
-                              </p>
-                              {orgData.website && (
-                                <a
-                                  href={orgData.website}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-block mt-4 text-sm text-blue-600 hover:underline"
-                                >
-                                  Перейти на сайт компании
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed border-gray-200">
-                            <p className="text-muted-foreground mb-4">Данные организации еще не заполнены</p>
-                            <Button
-                              variant="outline"
-                              onClick={handleEditToggle}
-                              className="border-blue-600 text-blue-600 hover:bg-blue-50"
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Зарегистрировать организацию
-                            </Button>
-                          </div>
-                        )}
+                    {isEditing && (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Добавить навык (напр. React, Python)"
+                          value={newSkill}
+                          onChange={(e) => setNewSkill(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddSkill();
+                            }
+                          }}
+                        />
+                        <Button
+                          onClick={handleAddSkill}
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
-            )}
-          </div>
-          <ApplicationsSection onJobClick={onJobClick} />
-          {(user.role === 'employer' || user.role === 'admin') && (
-            <EmployerApplicationsSection />
+
+              {/* Organization Section (Employer Only) */}
+              {user.role === 'employer' && (
+                <div className="lg:col-span-3">
+                  <Card className="shadow-sm border-2 border-blue-100 dark:border-blue-900/30">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-2">
+                          <Building className="h-6 w-6 text-blue-600" />
+                          <h2 className="text-xl font-bold">Организация</h2>
+                        </div>
+                        {!isEditing && (
+                          <Badge variant="outline" className="text-blue-600 border-blue-600">
+                            {orgData.name ? 'Зарегистрирована' : 'Не зарегистрирована'}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {isEditing ? (
+                        <>
+                          <div className="grid md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Название компании *</Label>
+                                <Input
+                                  value={orgData.name}
+                                  onChange={(e) => setOrgData({ ...orgData, name: e.target.value })}
+                                  placeholder="ООО 'Вектор'"
+                                  className={fieldErrors.orgName ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                                />
+                                {fieldErrors.orgName && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgName}</p>}
+                              </div>
+                              <div>
+                                <Label>Отрасль</Label>
+                                <Input
+                                  value={orgData.industry}
+                                  onChange={(e) => setOrgData({ ...orgData, industry: e.target.value })}
+                                  placeholder="IT, Строительство, Образование..."
+                                />
+                              </div>
+                              <div>
+                                <Label>Расположение компании</Label>
+                                <Input
+                                  value={orgData.location}
+                                  onChange={(e) => setOrgData({ ...orgData, location: e.target.value })}
+                                  placeholder="Москва, Пресненская наб., 12"
+                                />
+                              </div>
+                              <div>
+                                <Label>Сайт</Label>
+                                <Input
+                                  value={orgData.website}
+                                  onChange={(e) => setOrgData({ ...orgData, website: e.target.value })}
+                                  placeholder="https://company.com"
+                                  className={fieldErrors.orgWebsite ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                                />
+                                {fieldErrors.orgWebsite && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgWebsite}</p>}
+                              </div>
+                            </div>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Email для вакансий</Label>
+                                <Input
+                                  value={orgData.email}
+                                  onChange={(e) => setOrgData({ ...orgData, email: e.target.value })}
+                                  placeholder="hr@company.com"
+                                  className={fieldErrors.orgEmail ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                                />
+                                {fieldErrors.orgEmail && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgEmail}</p>}
+                              </div>
+                              <div>
+                                <Label>Контактный телефон компании</Label>
+                                <Input
+                                  value={orgData.phone}
+                                  onChange={handleOrgPhoneChange}
+                                  onFocus={() => onPhoneFocus('org')}
+                                  placeholder="+7 (999) 000-00-00"
+                                  className={fieldErrors.orgPhone ? 'border-red-500 shadow-[0_0_0_1px_rgba(239,68,68,0.5)]' : ''}
+                                />
+                                {fieldErrors.orgPhone && <p className="text-red-500 text-xs mt-1 font-medium">{fieldErrors.orgPhone}</p>}
+                              </div>
+                              <div>
+                                <Label>Описание компании</Label>
+                                <Textarea
+                                  value={orgData.description}
+                                  onChange={(e) => setOrgData({ ...orgData, description: e.target.value })}
+                                  placeholder="Расскажите о вашей компании, культуре и ценностях..."
+                                  rows={4}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-8 flex justify-end">
+                            <Button
+                              onClick={handleSaveProfile}
+                              disabled={saving}
+                              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl 
+                                         shadow-[0_6px_0_0_#1d4ed8] hover:shadow-[0_2px_0_0_#1d4ed8] 
+                                         active:shadow-none active:translate-y-[6px] 
+                                         transition-all duration-75 flex items-center gap-3 text-lg border-b-4 border-blue-800"
+                            >
+                              <Save className="h-6 w-6" />
+                              {saving ? 'Сохранение...' : 'Сохранить данные организации'}
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-6">
+                          {orgData.name ? (
+                            <div className="grid md:grid-cols-2 gap-8">
+                              <div>
+                                <div className="mb-4">
+                                  <h3 className="font-bold text-lg">{orgData.name}</h3>
+                                  <p className="text-blue-600 font-medium">{orgData.industry || 'Отрасль не указана'}</p>
+                                </div>
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                                    <span>{orgData.location || 'Адрес не указан'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Mail className="h-4 w-4 text-muted-foreground" />
+                                    <span>{orgData.email || 'Email не указан'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Phone className="h-4 w-4 text-muted-foreground" />
+                                    <span>{orgData.phone || 'Телефон не указан'}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-sm text-muted-foreground leading-relaxed italic">
+                                  {orgData.description || 'Описание не добавлено'}
+                                </p>
+                                {orgData.website && (
+                                  <a
+                                    href={orgData.website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-block mt-4 text-sm text-blue-600 hover:underline"
+                                  >
+                                    Перейти на сайт компании
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed border-gray-200">
+                              <p className="text-muted-foreground mb-4">Данные организации еще не заполнены</p>
+                              <Button
+                                variant="outline"
+                                onClick={handleEditToggle}
+                                className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Зарегистрировать организацию
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
           )}
-          <FavoritesSection onJobClick={onJobClick} />
+
+          {activeSection === 'applications' && isOwnProfile && (
+            <div className="space-y-6">
+              {user.role === 'employer' || user.role === 'admin' ? (
+                <EmployerApplicationsSection className="mt-0" />
+              ) : (
+                <ApplicationsSection onJobClick={onJobClick} />
+              )}
+            </div>
+          )}
+
+          {activeSection === 'favorites' && isOwnProfile && (
+            <FavoritesSection onJobClick={onJobClick} />
+          )}
         </div>
       </div>
     </div>

@@ -7,13 +7,15 @@ interface AuthDialogProps {
     onClose: () => void;
     defaultView?: 'login' | 'register';
     onSuccess?: () => void;
+    onResumeChoice?: (type: 'basic' | 'extended') => void;
 }
 
 export function AuthDialog({
     isOpen,
     onClose,
     defaultView = 'login',
-    onSuccess
+    onSuccess,
+    onResumeChoice
 }: AuthDialogProps) {
     const [view, setView] = useState<'login' | 'register'>(defaultView);
 
@@ -25,7 +27,6 @@ export function AuthDialog({
     }, [isOpen, defaultView]);
 
     const handleLoginSuccess = () => {
-        console.log('✅ Login successful, closing dialog');
         onSuccess?.();
         onClose();
         // Перезагружаем страницу для обновления UI с авторизованным пользователем
@@ -33,7 +34,6 @@ export function AuthDialog({
     };
 
     const handleRegistrationComplete = () => {
-        console.log('✅ Registration complete, closing dialog');
         onSuccess?.();
         onClose();
         // Перезагружаем страницу для обновления UI с авторизованным пользователем
@@ -55,6 +55,14 @@ export function AuthDialog({
                     onBack={onClose}
                     onRegistrationComplete={handleRegistrationComplete}
                     onSwitchToLogin={() => setView('login')}
+                    onResumeChoice={(type, user) => {
+                        onClose();
+                        if (onResumeChoice) {
+                            onResumeChoice(type);
+                        } else {
+                            window.location.reload();
+                        }
+                    }}
                 />
             )}
         </div>

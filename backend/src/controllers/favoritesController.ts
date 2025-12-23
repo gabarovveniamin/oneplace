@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import database from '../config/database';
 
-export const addToFavorites = async (req: Request, res: Response): Promise<void> => {
+export const addToFavorites = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
     const { jobId } = req.params;
 
@@ -14,17 +15,17 @@ export const addToFavorites = async (req: Request, res: Response): Promise<void>
         const stmt = database.prepare('INSERT INTO favorites (user_id, job_id) VALUES (?, ?)');
         stmt.run(userId, jobId);
         res.status(201).json({ message: 'Added to favorites' });
-    } catch (error: any) {
+    } catch (err: unknown) {
+        const error = err as any;
         if (error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
             res.status(400).json({ message: 'Already in favorites' });
         } else {
-            console.error('Error adding to favorites:', error);
             res.status(500).json({ message: 'Failed to add to favorites' });
         }
     }
 };
 
-export const removeFromFavorites = async (req: Request, res: Response): Promise<void> => {
+export const removeFromFavorites = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
     const { jobId } = req.params;
 
@@ -42,13 +43,12 @@ export const removeFromFavorites = async (req: Request, res: Response): Promise<
         } else {
             res.status(404).json({ message: 'Favorite not found' });
         }
-    } catch (error) {
-        console.error('Error removing from favorites:', error);
+    } catch (err: unknown) {
         res.status(500).json({ message: 'Failed to remove from favorites' });
     }
 };
 
-export const getFavorites = async (req: Request, res: Response): Promise<void> => {
+export const getFavorites = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -69,7 +69,7 @@ export const getFavorites = async (req: Request, res: Response): Promise<void> =
         const rows = stmt.all(userId);
 
         // Map database rows to response objects (similar to jobController)
-        const jobs = rows.map((row: any) => ({
+        const jobs = rows.map((row: Record<string, any>) => ({
             id: row.id,
             title: row.title,
             company: row.company,
@@ -109,13 +109,12 @@ export const getFavorites = async (req: Request, res: Response): Promise<void> =
         }));
 
         res.json({ data: jobs });
-    } catch (error) {
-        console.error('Error fetching favorites:', error);
+    } catch (err: unknown) {
         res.status(500).json({ message: 'Failed to fetch favorites' });
     }
 };
 
-export const getFavoriteIds = async (req: Request, res: Response): Promise<void> => {
+export const getFavoriteIds = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
     if (!userId) {
         res.status(401).json({ message: 'User not authenticated' });
@@ -125,10 +124,9 @@ export const getFavoriteIds = async (req: Request, res: Response): Promise<void>
     try {
         const stmt = database.prepare('SELECT job_id FROM favorites WHERE user_id = ?');
         const rows = stmt.all(userId);
-        const ids = rows.map((row: any) => row.job_id);
+        const ids = rows.map((row: Record<string, any>) => row.job_id);
         res.json({ data: ids });
-    } catch (error) {
-        console.error('Error fetching favorite IDs:', error);
+    } catch (err: unknown) {
         res.status(500).json({ message: 'Failed to fetch favorite IDs' });
     }
 }

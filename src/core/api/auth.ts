@@ -68,9 +68,10 @@ export class AuthApiService {
     return response.data;
   }
 
-  // Получить профиль текущего пользователя
-  async getProfile(): Promise<UserResponse> {
-    const response = await apiClient.get<any>('/auth/profile');
+  // Получить профиль текущего пользователя или другого пользователя по ID
+  async getProfile(userId?: string): Promise<UserResponse> {
+    const url = userId ? `/auth/users/${userId}` : '/auth/profile';
+    const response = await apiClient.get<any>(url);
     // Backend returns { success: true, data: { user: UserResponse } }
     // ApiClient returns the full JSON response
     // So response.data is { user: UserResponse }

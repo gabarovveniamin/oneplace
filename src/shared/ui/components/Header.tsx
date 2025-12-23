@@ -182,6 +182,7 @@ export function Header({
                     </Button>
                     <Button
                       variant="ghost"
+                      size="icon"
                       className="text-muted-foreground hover:text-red-600 px-2"
                       onClick={onLogout}
                       title="Выйти"

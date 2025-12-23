@@ -4,21 +4,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/com
 import { Input } from "../../../shared/ui/components/input";
 import { Label } from "../../../shared/ui/components/label";
 import { ArrowLeft, User, Mail, Lock, AlertCircle, CheckCircle, Briefcase } from "lucide-react";
-import { authApiService } from '../../../core/api/auth';
+import { authApiService, UserResponse } from '../../../core/api/auth';
+import { ApiError } from '../../../core/api';
 import { Alert, AlertDescription } from '../../../shared/ui/components/alert';
 import { cn } from '../../../shared/ui/components/utils';
 
 interface RegistrationProps {
   onBack: () => void;
-  onRegistrationComplete: () => void;
+  onRegistrationComplete: (user?: UserResponse) => void;
   onSwitchToLogin?: () => void;
+  onResumeChoice?: (type: 'basic' | 'extended', user?: UserResponse) => void;
 }
 
-export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin }: RegistrationProps) {
+export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin, onResumeChoice }: RegistrationProps) {
   const [step, setStep] = useState<'register' | 'resume-choice'>('register');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<'user' | 'employer'>('user');
+  const [registeredUser, setRegisteredUser] = useState<UserResponse | null>(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -97,22 +100,25 @@ export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin }
         role: role
       });
 
-      console.log('✅ Регистрация успешна:', response);
+      // Store user in state incase we need it for next step
+      // Note: authApiService.register returns { user, token }
+      // but response type is AuthResponse which has { user: UserResponse }
+      setRegisteredUser(response.user);
 
       // Если работодатель, сразу завершаем (без резюме)
       if (role === 'employer') {
-        onRegistrationComplete();
+        onRegistrationComplete(response.user);
       } else {
         // Переходим к выбору типа резюме для соискателя
         setStep('resume-choice');
       }
     } catch (err: any) {
-      console.error('❌ Ошибка регистрации:', err);
+      const apiError = err as ApiError;
 
       // Обрабатываем ошибки валидации с бэкенда
-      if (err?.details?.errors) {
+      if (apiError.details?.errors) {
         const backendErrors: Record<string, string> = {};
-        err.details.errors.forEach((error: any) => {
+        apiError.details.errors.forEach((error: any) => {
           const field = error.param || error.field;
           if (field) {
             backendErrors[field] = error.msg || error.message;
@@ -120,7 +126,7 @@ export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin }
         });
         setErrors(backendErrors);
       } else {
-        setError(err?.message || 'Произошла ошибка при регистрации. Попробуйте позже.');
+        setError(apiError.message || 'Произошла ошибка при регистрации. Попробуйте позже.');
       }
     } finally {
       setLoading(false);
@@ -128,8 +134,12 @@ export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin }
   };
 
   const handleResumeChoice = (type: 'basic' | 'extended') => {
-    // Сохраняем выбор типа резюме и переходим к созданию
-    onRegistrationComplete();
+    // В зависимости от выбора вызываем callback
+    if (onResumeChoice) {
+      onResumeChoice(type, registeredUser || undefined);
+    } else {
+      onRegistrationComplete(registeredUser || undefined);
+    }
   };
 
   if (step === 'resume-choice') {
@@ -141,50 +151,37 @@ export function Registration({ onBack, onRegistrationComplete, onSwitchToLogin }
               Добро пожаловать в <span className="bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">OnePlace</span>!
             </CardTitle>
             <p className="text-gray-600 dark:text-white text-lg">
-              Регистрация успешна! Теперь давайте создадим ваше резюме
+              Регистрация успешна! Хотите настроить резюме сейчас?
             </p>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-6 md:grid-cols-2">
-              <Card className="cursor-pointer border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 hover:shadow-md">
+              <Card className="cursor-pointer border-2 border-gray-200 hover:border-gray-500 transition-all duration-200 hover:shadow-md">
                 <CardContent className="p-6 text-center" onClick={() => handleResumeChoice('basic')}>
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <User className="h-8 w-8 text-blue-600" />
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <User className="h-8 w-8 text-gray-600" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2 text-blue-700 dark:text-blue-200">Обычное резюме</h3>
+                  <h3 className="text-xl font-semibold mb-2 text-gray-700 dark:text-gray-200">Позже</h3>
                   <p className="text-gray-600 dark:text-white mb-4">
-                    Стандартная форма с основной информацией о вас
+                    Перейти к поиску вакансий без создания резюме
                   </p>
-                  <ul className="text-sm text-gray-500 dark:text-blue-100 space-y-1 mb-4">
-                    <li>• Личная информация</li>
-                    <li>• Опыт работы</li>
-                    <li>• Образование</li>
-                    <li>• Навыки</li>
-                  </ul>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                    Выбрать
+                  <Button variant="outline" className="w-full">
+                    Пропустить
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card className="cursor-pointer border-2 border-gray-200 hover:border-green-500 transition-all duration-200 hover:shadow-md">
+              <Card className="cursor-pointer border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 hover:shadow-md">
                 <CardContent className="p-6 text-center" onClick={() => handleResumeChoice('extended')}>
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <div className="text-white font-bold text-xl">★</div>
+                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Briefcase className="h-8 w-8 text-blue-600" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-2 text-green-700 dark:text-green-200">Расширенное резюме</h3>
+                  <h3 className="text-xl font-semibold mb-2 text-blue-700 dark:text-blue-200">Настроить резюме</h3>
                   <p className="text-gray-600 dark:text-white mb-4">
-                    Детальное резюме с подтверждением навыков
+                    Заполнить информацию о навыках и опыте работы
                   </p>
-                  <ul className="text-sm text-gray-500 dark:text-green-100 space-y-1 mb-4">
-                    <li>• Все из обычного резюме</li>
-                    <li>• Тестирование навыков</li>
-                    <li>• Портфолио проектов</li>
-                    <li>• Рекомендации</li>
-                    <li>• Приоритет в поиске</li>
-                  </ul>
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-green-500 hover:from-blue-700 hover:to-green-600 text-white">
-                    Выбрать (Рекомендуется)
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                    Настроить
                   </Button>
                 </CardContent>
               </Card>

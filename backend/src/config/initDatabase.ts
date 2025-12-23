@@ -132,6 +132,41 @@ export const initializeDatabase = () => {
       )
     `);
 
+    // Создание таблицы сообщений
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        sender_id TEXT NOT NULL,
+        receiver_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        is_read INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Создание таблицы резюме
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS resumes (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT NOT NULL UNIQUE,
+        title TEXT,
+        city TEXT,
+        phone TEXT,
+        salary TEXT,
+        summary TEXT,
+        skills TEXT,
+        experience TEXT,
+        education TEXT,
+        projects TEXT,
+        status TEXT DEFAULT 'active',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     // Создание индексов для пользователей
     db.exec(`
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -155,6 +190,11 @@ export const initializeDatabase = () => {
       CREATE INDEX IF NOT EXISTS idx_jobs_is_featured ON jobs(is_featured);
       CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_jobs_expires_at ON jobs(expires_at);
+
+      -- Индексы для резюме
+      CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
+      CREATE INDEX IF NOT EXISTS idx_resumes_city ON resumes(city);
+      CREATE INDEX IF NOT EXISTS idx_resumes_title ON resumes(title);
     `);
 
     // Создание виртуальной таблицы для полнотекстового поиска (FTS5)

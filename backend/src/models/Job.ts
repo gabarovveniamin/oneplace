@@ -266,8 +266,8 @@ export class JobModel {
 
   // Обновление вакансии
   static async update(id: string, jobData: UpdateJobData): Promise<Job | null> {
-    const fields = [];
-    const values = [];
+    const fields: string[] = [];
+    const values: any[] = [];
 
     if (jobData.title !== undefined) {
       fields.push('title = ?');
@@ -388,7 +388,7 @@ export class JobModel {
   }
 
   // Маппинг строки БД в объект Job
-  private static mapRowToJob(row: any): Job {
+  private static mapRowToJob(row: Record<string, any>): Job {
     const createdDate = new Date(row.created_at);
     return {
       id: row.id,
@@ -425,7 +425,7 @@ export class JobModel {
   }
 
   // Маппинг строки БД в объект Job с пользователем
-  private static mapRowToJobWithUser(row: any): Job {
+  private static mapRowToJobWithUser(row: Record<string, any>): Job {
     const job = this.mapRowToJob(row);
     if (row.posted_by_id) {
       job.postedByUser = {

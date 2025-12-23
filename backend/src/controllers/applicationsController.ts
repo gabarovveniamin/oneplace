@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import database from '../config/database';
+import { socketManager } from '../socket';
 
 // Helper to create notification (internal use)
 export const createNotificationInternal = (userId: string, type: string, title: string, message: string, relatedId?: string) => {
@@ -8,13 +10,26 @@ export const createNotificationInternal = (userId: string, type: string, title: 
             INSERT INTO notifications (user_id, type, title, message, related_id)
             VALUES (?, ?, ?, ?, ?)
         `);
-        stmt.run(userId, type, title, message, relatedId);
-    } catch (error) {
-        console.error('Failed to create notification:', error);
+        const result = stmt.run(userId, type, title, message, relatedId);
+
+        // Push notification via Socket.IO
+        socketManager.sendToUser(userId, 'notification', {
+            id: result.lastInsertRowid.toString(),
+            user_id: userId,
+            type,
+            title,
+            message,
+            related_id: relatedId,
+            is_read: 0,
+            created_at: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('Failed to create notification or send via socket', err);
+        // Silent fail for notifications to not break main flow
     }
 };
 
-export const applyForJob = async (req: Request, res: Response): Promise<void> => {
+export const applyForJob = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
     const { jobId } = req.params;
     const { coverLetter } = req.body;
@@ -27,7 +42,7 @@ export const applyForJob = async (req: Request, res: Response): Promise<void> =>
     try {
         // Check if job exists and get employer ID
         const jobStmt = database.prepare('SELECT posted_by, title FROM jobs WHERE id = ?');
-        const job = jobStmt.get(jobId) as any;
+        const job = jobStmt.get(jobId) as { posted_by: string; title: string } | undefined;
 
         if (!job) {
             res.status(404).json({ message: 'Job not found' });
@@ -60,13 +75,12 @@ export const applyForJob = async (req: Request, res: Response): Promise<void> =>
         );
 
         res.status(201).json({ message: 'Application submitted successfully' });
-    } catch (error) {
-        console.error('Error applying for job:', error);
+    } catch (err) {
         res.status(500).json({ message: 'Failed to submit application' });
     }
 };
 
-export const getUserApplications = async (req: Request, res: Response): Promise<void> => {
+export const getUserApplications = async (req: AuthRequest, res: Response): Promise<void> => {
     const userId = req.user?.id;
 
     if (!userId) {
@@ -84,14 +98,13 @@ export const getUserApplications = async (req: Request, res: Response): Promise<
         `);
         const applications = stmt.all(userId);
         res.json({ data: applications });
-    } catch (error) {
-        console.error('Error fetching user applications:', error);
+    } catch (err) {
         res.status(500).json({ message: 'Failed to fetch applications' });
     }
 };
 
 // For employers to see who applied to their jobs
-export const getEmployerApplications = async (req: Request, res: Response): Promise<void> => {
+export const getEmployerApplications = async (req: AuthRequest, res: Response): Promise<void> => {
     const employerId = req.user?.id;
 
     if (!employerId) {
@@ -110,13 +123,12 @@ export const getEmployerApplications = async (req: Request, res: Response): Prom
         `);
         const applications = stmt.all(employerId);
         res.json({ data: applications });
-    } catch (error) {
-        console.error('Error fetching employer applications:', error);
+    } catch (err) {
         res.status(500).json({ message: 'Failed to fetch applications' });
     }
 };
 
-export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
+export const updateApplicationStatus = async (req: AuthRequest, res: Response): Promise<void> => {
     const employerId = req.user?.id;
     const { applicationId } = req.params;
     const { status } = req.body;
@@ -134,7 +146,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
             JOIN jobs j ON a.job_id = j.id
             WHERE a.id = ? AND j.posted_by = ?
         `);
-        const application = verifyStmt.get(applicationId, employerId) as any;
+        const application = verifyStmt.get(applicationId, employerId) as { id: string; user_id: string; title: string } | undefined;
 
         if (!application) {
             res.status(404).json({ message: 'Application not found or access denied' });
@@ -159,8 +171,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
         );
 
         res.json({ message: 'Status updated' });
-    } catch (error) {
-        console.error('Error updating status:', error);
+    } catch (err) {
         res.status(500).json({ message: 'Failed to update status' });
     }
 };

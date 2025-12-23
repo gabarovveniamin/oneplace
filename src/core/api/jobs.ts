@@ -75,7 +75,12 @@ export class JobsApiService {
     byIndustry: Record<string, number>;
     byRegion: Record<string, number>;
   }> {
-    const response = await apiClient.get('/jobs/stats');
+    const response = await apiClient.get<{
+      total: number;
+      byType: Record<string, number>;
+      byIndustry: Record<string, number>;
+      byRegion: Record<string, number>;
+    }>('/jobs/stats');
     return response.data;
   }
 }

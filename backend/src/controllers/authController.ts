@@ -192,13 +192,43 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+// Get user profile by ID (public info)
+export const getUserById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    const user = await UserModel.findById(userId);
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email, // Maybe hide email if privacy concerns? But for now it's okay for "like profile"
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phone: user.phone,
+          avatar: user.avatar,
+          role: user.role,
+          isEmailVerified: user.isEmailVerified,
+          createdAt: user.createdAt,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Update user profile
 export const updateProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const user = (req as any).user as User;
     const { firstName, lastName, phone, avatar, orgName, orgIndustry, orgLocation, orgDescription, orgWebsite, orgEmail, orgPhone, orgLogo } = req.body;
-
-    console.log('updateProfile controller called with body:', req.body);
 
     const updateData: any = {};
 
@@ -214,8 +244,6 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
     if (orgEmail !== undefined) updateData.orgEmail = orgEmail;
     if (orgPhone !== undefined) updateData.orgPhone = orgPhone;
     if (orgLogo !== undefined) updateData.orgLogo = orgLogo;
-
-    console.log('Constructed updateData:', updateData);
 
     const updatedUser = await UserModel.update(user.id, updateData);
 

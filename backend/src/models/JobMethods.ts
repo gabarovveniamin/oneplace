@@ -4,7 +4,7 @@ import { Job, UpdateJobData } from './Job';
 export class JobModelMethods {
   // Обновление вакансии
   static async update(id: string, jobData: UpdateJobData): Promise<Job | null> {
-    const fields = [];
+    const fields: string[] = [];
     const values: any[] = [];
 
     const fieldMappings = {
@@ -113,7 +113,12 @@ export class JobModelMethods {
   }
 
   // Получение статистики
-  static async getStats(): Promise<any> {
+  static async getStats(): Promise<{
+    total: number;
+    byType: Record<string, number>;
+    byIndustry: Record<string, number>;
+    byRegion: Record<string, number>;
+  }> {
     const [totalResult, byTypeResult, byIndustryResult, byRegionResult] = await Promise.all([
       query('SELECT COUNT(*) as total FROM jobs WHERE is_active = 1'),
       query('SELECT type, COUNT(*) as count FROM jobs WHERE is_active = 1 GROUP BY type'),
@@ -121,9 +126,9 @@ export class JobModelMethods {
       query('SELECT region, COUNT(*) as count FROM jobs WHERE is_active = 1 AND region IS NOT NULL GROUP BY region'),
     ]);
 
-    const byType = byTypeResult.rows.reduce((acc, row) => ({ ...acc, [row.type]: row.count }), {});
-    const byIndustry = byIndustryResult.rows.reduce((acc, row) => ({ ...acc, [row.industry]: row.count }), {});
-    const byRegion = byRegionResult.rows.reduce((acc, row) => ({ ...acc, [row.region]: row.count }), {});
+    const byType = byTypeResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.type]: row.count }), {});
+    const byIndustry = byIndustryResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.industry]: row.count }), {});
+    const byRegion = byRegionResult.rows.reduce((acc: Record<string, number>, row: Record<string, any>) => ({ ...acc, [row.region]: row.count }), {});
 
     return {
       total: totalResult.rows[0].total,
@@ -148,7 +153,7 @@ export class JobModelMethods {
   }
 
   // Маппинг строки БД в объект Job
-  private static mapRowToJob(row: any): Job {
+  private static mapRowToJob(row: Record<string, any>): Job {
     const createdDate = new Date(row.created_at);
     return {
       id: row.id,
@@ -185,7 +190,7 @@ export class JobModelMethods {
   }
 
   // Маппинг строки БД в объект Job с пользователем
-  private static mapRowToJobWithUser(row: any): Job {
+  private static mapRowToJobWithUser(row: Record<string, any>): Job {
     const job = this.mapRowToJob(row);
     if (row.posted_by_id) {
       job.postedByUser = {

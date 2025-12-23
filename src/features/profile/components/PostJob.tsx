@@ -626,7 +626,14 @@ export function PostJob({ onBack }: PostJobProps) {
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {error.message}
+              <div className="font-semibold">{error.message}</div>
+              {error.details?.errors && (
+                <ul className="mt-2 list-disc list-inside text-sm">
+                  {error.details.errors.map((err: { msg: string }, index: number) => (
+                    <li key={index}>{err.msg}</li>
+                  ))}
+                </ul>
+              )}
             </AlertDescription>
           </Alert>
         )}

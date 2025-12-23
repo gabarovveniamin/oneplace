@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { AuthRequest } from '../middleware/auth';
 import { UserModel } from '../models/User';
 import { JobModel } from '../models/Job';
 
@@ -16,12 +17,12 @@ export const getAllUsers = async (req: Request, res: Response, next: NextFunctio
 };
 
 // Удалить пользователя
-export const deleteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { id } = req.params;
 
         // Нельзя удалить самого себя
-        if (req.user?.id === id) {
+        if (req.user && req.user.id === id) {
             res.status(400).json({
                 success: false,
                 message: 'Cannot delete your own account'
