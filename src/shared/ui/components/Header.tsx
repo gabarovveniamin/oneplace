@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "./button";
 import { Input } from "./input";
-import { Search, User, Filter, X, ChevronDown, LogOut, MessageSquare } from "lucide-react";
+import { Search, User, Filter, X, ChevronDown, LogOut, MessageSquare, MapPin, Bell } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchFilters } from "../../../shared/types/job";
 import { UserResponse } from "../../../core/api/auth";
 import { Card, CardContent } from "./card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 import { NotificationsPopover } from '../../../features/notifications/components/NotificationsPopover';
+import { MessengerModal } from '../../../features/chat/components/MessengerModal';
 
 interface HeaderProps {
   isDarkMode: boolean;
@@ -91,131 +92,125 @@ export function Header({
 
   return (
     <div className="relative">
-      <header className="bg-card shadow-sm border-b border-border sticky top-0 z-50">
+      <header className="bg-[#0f172a] shadow-lg border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center cursor-pointer" onClick={onLogoClick}>
-              <div className="flex-shrink-0 flex items-center space-x-3">
-                <img src="/Log.png" alt="OnePlace" className="h-14 w-14 object-contain" />
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
-                  OnePlace
-                </h1>
+            <div className="flex items-center cursor-pointer space-x-2 flex-shrink-0" onClick={onLogoClick}>
+              <MapPin className="h-6 w-6 text-blue-500" />
+              <div className="flex text-xl font-bold">
+                <span className="text-blue-500">One</span>
+                <span className="text-green-500">Place</span>
               </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="flex-1 max-w-2xl mx-8">
-              <form onSubmit={handleSearchSubmit} className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  type="text"
-                  placeholder="Поиск вакансий, проектов, подработок..."
-                  className="pl-10 pr-20 bg-muted border-0 rounded-lg focus:bg-card focus:ring-2 focus:ring-blue-500"
-                  value={searchValue}
-                  onChange={handleSearchInputChange}
-                />
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleAdvancedSearch}
-                    className="h-6 w-6 p-0 hover:bg-accent relative"
-                  >
-                    <Filter className="h-3 w-3" />
-                    {activeFiltersCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                        {activeFiltersCount}
-                      </span>
-                    )}
-                  </Button>
+            {/* Search Bar & Filter */}
+            <div className="flex-1 min-w-[150px] max-w-2xl mx-2 sm:mx-6">
+              <div className="flex items-center space-x-2">
+                <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    type="text"
+                    placeholder="Поиск..."
+                    className="pl-10 pr-10 bg-[#1e293b]/50 border-0 rounded-lg focus:bg-[#1e293b] focus:ring-1 focus:ring-blue-500/50 text-sm h-10 w-full"
+                    value={searchValue}
+                    onChange={handleSearchInputChange}
+                  />
                   {searchValue && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => onSearchValueChange?.('')}
-                      className="h-6 w-6 p-0 hover:bg-accent"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-white/10"
                     >
                       <X className="h-3 w-3" />
                     </Button>
                   )}
-                </div>
-              </form>
+                </form>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleAdvancedSearch}
+                  className="h-10 w-10 p-0 hover:bg-white/10 relative flex-shrink-0 hidden md:flex"
+                >
+                  <Filter className="h-5 w-5 text-muted-foreground" />
+                  {activeFiltersCount > 0 && (
+                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                      {activeFiltersCount}
+                    </span>
+                  )}
+                </Button>
+              </div>
             </div>
 
-            {/* Navigation Links */}
-            <div className="flex items-center space-x-4">
-              {currentUser && (currentUser.role === 'employer' || currentUser.role === 'admin') && (
-                <Button
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-blue-600"
-                  onClick={() => window.location.hash = 'post-job'}
-                >
-                  Разместить вакансию
-                </Button>
-              )}
+            {/* Right Side Navigation */}
+            <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0">
+              <div className="hidden lg:block">
+                <ThemeToggle isDark={isDarkMode} onToggle={onThemeToggle} />
+              </div>
 
-              {/* Theme Toggle */}
-              <ThemeToggle isDark={isDarkMode} onToggle={onThemeToggle} />
-
-              {/* Auth Buttons */}
-              <div className="flex items-center space-x-4">
-                {currentUser ? (
-                  <div className="flex items-center space-x-3">
+              {currentUser ? (
+                <div className="flex items-center gap-1 sm:gap-3">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <NotificationsPopover onNavigateToProfile={onProfileClick} />
-                    <span className="text-sm font-medium text-foreground">
+                    <MessengerModal />
+                  </div>
+
+                  <div className="hidden xl:block h-6 w-[1px] bg-border/20" />
+
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="hidden 2xl:block text-sm font-medium text-foreground whitespace-nowrap">
                       {currentUser.firstName} {currentUser.lastName}
                     </span>
-                    {(currentUser.role === 'admin' || currentUser.email === 'admin@oneplace.com') && (
-                      <Button
-                        variant="ghost"
-                        className="bg-red-600 text-white hover:bg-red-700 font-bold px-4 py-2 rounded-lg transition-all shadow-lg hover:scale-105 active:scale-95"
-                        onClick={() => onAdminClick?.()}
-                      >
-                        Админ панель
-                      </Button>
-                    )}
+
                     <Button
-                      variant="outline"
-                      className="rounded-lg"
-                      onClick={() => window.location.hash = 'messages'}
+                      variant="ghost"
+                      className="hidden lg:flex text-sm font-medium hover:text-blue-500 px-2"
+                      onClick={onProfileClick}
                     >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Сообщения
-                    </Button>
-                    <Button variant="outline" className="rounded-lg" onClick={onProfileClick}>
                       Профиль
                     </Button>
+
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-muted-foreground hover:text-red-600 px-2"
+                      className="text-muted-foreground hover:text-red-500 h-9 w-9"
                       onClick={onLogout}
                       title="Выйти"
                     >
                       <LogOut className="h-5 w-5" />
                     </Button>
                   </div>
-                ) : (
-                  <>
+
+                  {(currentUser.role === 'admin' || currentUser.email === 'admin@oneplace.com') && (
                     <Button
                       variant="ghost"
-                      className="text-muted-foreground hover:text-blue-600"
-                      onClick={onLoginClick}
+                      className="hidden md:flex bg-red-600/10 text-red-500 hover:bg-red-600/20 text-xs font-bold px-3 h-8 rounded-lg transition-all"
+                      onClick={() => onAdminClick?.()}
                     >
-                      Войти
+                      Админ
                     </Button>
-                    <Button
-                      className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                      onClick={onRegisterClick}
-                    >
-                      Зарегистрироваться
-                    </Button>
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    className="text-sm font-medium hover:text-blue-500"
+                    onClick={onLoginClick}
+                  >
+                    Войти
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-sm h-9 rounded-md px-4 hidden sm:block"
+                    onClick={onRegisterClick}
+                  >
+                    Регистрация
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>

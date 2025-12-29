@@ -196,10 +196,10 @@ export class JobModel {
       whereConditions.push('j.is_active = TRUE');
     }
 
-    // Текстовый поиск через PostgreSQL FTS
+    // Текстовый поиск через PostgreSQL FTS и триграммы
     if (filters.keyword) {
       addCondition(
-        "to_tsvector('russian', j.title || ' ' || j.company || ' ' || j.description) @@ plainto_tsquery('russian', ?)",
+        "(to_tsvector('russian', j.title || ' ' || j.company || ' ' || j.description) @@ plainto_tsquery('russian', ?) OR (j.title || ' ' || j.company) % ?)",
         filters.keyword
       );
     }

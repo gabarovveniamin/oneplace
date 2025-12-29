@@ -7,6 +7,9 @@ export const initializeDatabase = async () => {
     // Включаем расширение для UUID если его нет (для старых версий Postgres)
     await query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
 
+    // Включаем расширение для триграмм (для нечеткого поиска)
+    await query('CREATE EXTENSION IF NOT EXISTS "pg_trgm"');
+
     // 1. Таблица пользователей
     await query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -169,6 +172,11 @@ export const initializeDatabase = async () => {
     // Создание индексов
     await query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
     await query('CREATE INDEX IF NOT EXISTS idx_jobs_search ON jobs USING GIN (to_tsvector(\'russian\', title || \' \' || company || \' \' || description))');
+
+    // Триграммные индексы для нечеткого поиска
+    await query('CREATE INDEX IF NOT EXISTS idx_jobs_trgm ON jobs USING GIN ((title || \' \' || company) gin_trgm_ops)');
+    await query('CREATE INDEX IF NOT EXISTS idx_resumes_trgm ON resumes USING GIN ((title || \' \' || skills::text || \' \' || summary) gin_trgm_ops)');
+
     await query('CREATE INDEX IF NOT EXISTS idx_jobs_is_active ON jobs(is_active)');
     await query('CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id)');
 
