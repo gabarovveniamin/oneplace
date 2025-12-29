@@ -1,6 +1,6 @@
 # OnePlace Backend API
 
-Backend API для платформы поиска работы OnePlace, построенный на Node.js, Express.js и MongoDB.
+Backend API для платформы поиска работы OnePlace, построенный на Node.js, Express.js и PostgreSQL.
 
 ## 🚀 Возможности
 
@@ -17,7 +17,7 @@ Backend API для платформы поиска работы OnePlace, пос
 ## 📋 Требования
 
 - Node.js 18+
-- MongoDB 4.4+
+- PostgreSQL 15+
 - npm или yarn
 
 ## 🛠️ Установка
@@ -42,17 +42,13 @@ cp env.example .env
 ```env
 PORT=3000
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/onepace
+DATABASE_URL=postgresql://user:password@localhost:5432/oneplace
 JWT_SECRET=your-super-secret-jwt-key
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=http://localhost:3001
 ```
 
-4. **Запустите MongoDB:**
-```bash
-# Убедитесь, что MongoDB запущен
-mongod
-```
+# Убедитесь, что PostgreSQL запущен и создана база данных
 
 5. **Запустите сервер:**
 ```bash
@@ -96,7 +92,7 @@ src/
 ├── config/           # Конфигурация
 ├── controllers/      # Контроллеры
 ├── middleware/       # Middleware
-├── models/          # Модели MongoDB
+├── models/          # Модели PostgreSQL
 ├── routes/          # Маршруты
 ├── utils/           # Утилиты
 └── index.ts         # Точка входа

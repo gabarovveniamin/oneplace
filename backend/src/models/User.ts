@@ -1,6 +1,5 @@
 import { query } from '../config/database';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
 
 export interface User {
   id: string;
@@ -50,10 +49,7 @@ export interface UpdateUserData {
   orgLogo?: string;
 }
 
-// Генерация UUID для SQLite
-const generateId = (): string => {
-  return randomBytes(16).toString('hex');
-};
+
 
 export class UserModel {
   // Создание пользователя

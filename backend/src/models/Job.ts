@@ -1,5 +1,4 @@
 import { query } from '../config/database';
-import { randomBytes } from 'crypto';
 
 export interface Job {
   id: string;
@@ -120,10 +119,7 @@ export interface PaginationOptions {
   limit: number;
 }
 
-// Генерация UUID для SQLite
-const generateId = (): string => {
-  return randomBytes(16).toString('hex');
-};
+
 
 export class JobModel {
   // Создание вакансии

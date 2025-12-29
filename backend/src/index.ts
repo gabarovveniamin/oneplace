@@ -31,7 +31,7 @@ app.get('/api/debug-db', (req, res) => {
     cwd: process.cwd(),
     execPath: process.execPath,
     __dirname: __dirname,
-    dbPath: path.resolve(process.cwd(), 'database.sqlite')
+    dbPath: 'PostgreSQL'
   });
 });
 
@@ -120,7 +120,7 @@ server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${config.nodeEnv}`);
   console.log(`🔗 API URL: http://localhost:${PORT}/api`);
-  console.log('💾 Using SQLite database');
+  console.log('💾 Using PostgreSQL database');
 });
 
 export default app;

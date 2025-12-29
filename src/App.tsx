@@ -28,7 +28,6 @@ export default function App() {
   const [viewTargetUserId, setViewTargetUserId] = useState<string | undefined>(undefined);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
 
-  // Используем хук для работы с вакансиями
   const {
     jobs: filteredJobs,
     loading: jobsLoading,
@@ -40,7 +39,6 @@ export default function App() {
     handleClearAdvancedSearch
   } = useJobs();
 
-  // Handle hash-based navigation
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
@@ -78,18 +76,16 @@ export default function App() {
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    handleHashChange(); // Check initial hash
+    handleHashChange();
 
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
 
-  // Подсчитываем количество активных фильтров
   const activeFiltersCount = Object.values(searchFilters).filter(value =>
     value !== undefined && value !== '' && value !== null
   ).length;
 
-  // Логика фильтрации перенесена в useJobs хук
 
   const handleJobClick = (job: Job) => {
     setSelectedJob(job);
@@ -367,8 +363,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Footer на всех страницах */}
-      <Footer />
+      {/* Footer на всех страницах, кроме мессенджера */}
+      {currentView !== 'messages' && <Footer />}
 
       {/* Auth Dialog */}
       <AuthDialog
