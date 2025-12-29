@@ -89,7 +89,15 @@ export function MessengerPopover({ onChatSelect, customTrigger, side = "bottom",
             <PopoverContent className="w-80 p-0" align={align} side={side} sideOffset={10}>
                 <div className="flex items-center justify-between px-4 py-3 border-b">
                     <h4 className="font-semibold text-sm">Сообщения</h4>
-                    <Button variant="ghost" size="sm" className="h-auto py-1 text-xs text-blue-600 p-0">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto py-1 text-xs text-blue-600 p-0 hover:bg-transparent hover:text-blue-700"
+                        onClick={() => {
+                            window.location.hash = '#messages';
+                            setIsOpen(false);
+                        }}
+                    >
                         Все чаты
                     </Button>
                 </div>

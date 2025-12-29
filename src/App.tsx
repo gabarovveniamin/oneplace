@@ -244,6 +244,10 @@ export default function App() {
           setIsAuthDialogOpen(true);
         }}
         onProfileClick={handleProfileClick}
+        onMessagesClick={() => {
+          window.location.hash = '#messages';
+          setCurrentView('messages');
+        }}
         onAdminClick={() => setCurrentView('admin')}
         onLogout={handleLogout}
         currentUser={currentUser}
@@ -351,16 +355,15 @@ export default function App() {
       {/* Quick Access - Messenger */}
       {currentUser && (
         <div className="fixed bottom-6 right-6 z-40">
-          <MessengerPopover
-            onChatSelect={setActiveChat}
-            side="top"
-            align="end"
-            customTrigger={
-              <div className="bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-full shadow-xl transition-all duration-200 hover:scale-110 active:scale-95">
-                <MessageSquare className="h-6 w-6" />
-              </div>
-            }
-          />
+          <div
+            className="bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-full shadow-xl transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
+            onClick={() => {
+              window.location.hash = '#messages';
+              setCurrentView('messages');
+            }}
+          >
+            <MessageSquare className="h-6 w-6" />
+          </div>
         </div>
       )}
 

@@ -4,6 +4,7 @@ import { JobModel, Job, JobFilters } from '../models/Job';
 import { JobModelMethods } from '../models/JobMethods';
 import { createError } from '../middleware/errorHandler';
 import { AuthRequest } from '../middleware/auth';
+import { searchManager } from '../services/SearchManager';
 
 // Validation rules
 export const createJobValidation = [
@@ -162,9 +163,38 @@ export const searchJobs = async (req: Request, res: Response, next: NextFunction
     // Build filter object
     const filters: JobFilters = { isActive: true };
 
-    // Text search
+    // Text search using SearchManager (Smart In-Memory Search)
     if (req.query.keyword) {
-      filters.keyword = req.query.keyword as string;
+      const keyword = req.query.keyword as string;
+      const smartResults = searchManager.searchJobs(keyword, 100);
+
+      // Если у нас есть результаты умного поиска, будем фильтровать их
+      if (smartResults.length > 0) {
+        // Простая фильтрация по остальным полям (имитация DB-фильтров для примера)
+        let filtered = smartResults;
+
+        if (req.query.type && req.query.type !== 'all') {
+          filtered = filtered.filter(j => j.type === req.query.type);
+        }
+        if (req.query.location) {
+          filtered = filtered.filter(j => j.location.toLowerCase().includes((req.query.location as string).toLowerCase()));
+        }
+        // ... другие фильтры ...
+
+        const total = filtered.length;
+        const offset = (page - 1) * limit;
+        const paginated = filtered.slice(offset, offset + limit);
+
+        res.json({
+          success: true,
+          data: {
+            data: paginated,
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+            isSmartSearch: true
+          },
+        });
+        return;
+      }
     }
 
     // Exact matches
@@ -231,6 +261,9 @@ export const createJob = async (req: AuthRequest, res: Response, next: NextFunct
       postedBy: user.id,
     });
 
+    // Refresh search index
+    searchManager.refreshJob(job);
+
     res.status(201).json({
       success: true,
       message: 'Job created successfully',
@@ -273,6 +306,9 @@ export const updateJob = async (req: AuthRequest, res: Response, next: NextFunct
       });
       return;
     }
+
+    // Refresh search index
+    searchManager.refreshJob(updatedJob);
 
     res.json({
       success: true,

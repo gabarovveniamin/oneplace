@@ -103,12 +103,16 @@ app.use(notFound);
 app.use(errorHandler);
 
 import { socketManager } from './socket';
+import { searchManager } from './services/SearchManager';
 import { createServer } from 'http';
 
 const server = createServer(app);
 
 // Initialize Socket.IO
 socketManager.init(server);
+
+// Initialize Search Engine
+searchManager.initialize();
 
 // Start server
 const PORT = config.port;

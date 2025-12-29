@@ -1,86 +1,40 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSocket } from '@/core/socket/SocketContext';
-import { chatApiService } from '@/core/api/chat';
-import { Send, ArrowLeft } from 'lucide-react';
+import { chatApiService, Chat, ChatMessage } from '@/core/api/chat';
+import {
+    Send,
+    ArrowLeft,
+    Search,
+    MoreVertical,
+    Phone,
+    Video,
+    Paperclip,
+    Smile,
+    MessageSquare,
+    Check,
+    CheckCheck
+} from 'lucide-react';
 import { Button } from '@/shared/ui/components/button';
 import { Input } from '@/shared/ui/components/input';
-
-interface Message {
-    id: string;
-    sender_id: string;
-    receiver_id: string;
-    content: string;
-    is_read: boolean;
-    created_at: string;
-}
-
-interface Chat {
-    other_user_id: string;
-    first_name: string;
-    last_name: string;
-    avatar?: string | null;
-    last_message: string;
-    last_message_at: string;
-    unread_count: number;
-    is_read: boolean;
-    sender_id: string;
-}
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/components/avatar";
+import { ScrollArea } from "@/shared/ui/components/scroll-area";
+import { cn } from '@/shared/ui/components/utils';
+import { authApiService } from '@/core/api/auth';
 
 export function MessagesPage() {
     const { socket, isConnected } = useSocket();
     const [chats, setChats] = useState<Chat[]>([]);
     const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
+    const [sending, setSending] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const currentUserId = localStorage.getItem('userId');
+    const currentUser = authApiService.getCurrentUser();
 
     // Загрузка списка чатов
-    useEffect(() => {
-        loadChats();
-    }, []);
-
-    // Подписка на новые сообщения через WebSocket
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleNewMessage = (message: Message) => {
-            console.log('📨 New message received:', message);
-            // Обновляем список сообщений если чат открыт
-            if (selectedChat && (message.sender_id === selectedChat.other_user_id || message.receiver_id === selectedChat.other_user_id)) {
-                setMessages(prev => [...prev, message]);
-                scrollToBottom();
-
-                // Помечаем как прочитанное
-                if (message.sender_id === selectedChat.other_user_id) {
-                    chatApiService.markAsRead(selectedChat.other_user_id);
-                }
-            }
-
-            // Обновляем список чатов
-            loadChats();
-        };
-
-        socket.on('new_message', handleNewMessage);
-        console.log('🔌 WebSocket listener attached for new_message');
-
-        return () => {
-            socket.off('new_message', handleNewMessage);
-            console.log('🔌 WebSocket listener removed for new_message');
-        };
-    }, [socket, selectedChat]);
-
-    // Автоскролл вниз при новых сообщениях
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    const loadChats = async () => {
+    const loadChats = useCallback(async () => {
         try {
             const data = await chatApiService.getChats();
             setChats(data);
@@ -89,181 +43,331 @@ export function MessagesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const loadMessages = async (chat: Chat) => {
+    useEffect(() => {
+        loadChats();
+    }, [loadChats]);
+
+    // Загрузка сообщений
+    const loadMessages = useCallback(async (chat: Chat) => {
         try {
             setSelectedChat(chat);
             const data = await chatApiService.getMessages(chat.other_user_id);
             setMessages(data);
 
-            // Помечаем сообщения как прочитанные
             if (chat.unread_count > 0) {
                 await chatApiService.markAsRead(chat.other_user_id);
-                loadChats(); // Обновляем счётчик
+                loadChats();
             }
         } catch (error) {
             console.error('Failed to load messages:', error);
         }
-    };
+    }, [loadChats]);
 
-    const sendMessage = async () => {
-        if (!newMessage.trim() || !selectedChat) return;
+    // WebSocket listeners
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleNewMessage = (message: ChatMessage) => {
+            if (selectedChat && (message.sender_id === selectedChat.other_user_id || message.receiver_id === selectedChat.other_user_id)) {
+                setMessages(prev => {
+                    if (prev.find(m => m.id === message.id)) return prev;
+                    return [...prev, message];
+                });
+                if (message.sender_id === selectedChat.other_user_id) {
+                    chatApiService.markAsRead(selectedChat.other_user_id).then(() => loadChats());
+                }
+            } else {
+                loadChats();
+            }
+        };
+
+        socket.on('new_message', handleNewMessage);
+        return () => {
+            socket.off('new_message', handleNewMessage);
+        };
+    }, [socket, selectedChat, loadChats]);
+
+    // Auto-scroll
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const sendMessage = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (!newMessage.trim() || !selectedChat || sending) return;
 
         try {
+            setSending(true);
             await chatApiService.sendMessage(selectedChat.other_user_id, newMessage);
             setNewMessage('');
         } catch (error) {
             console.error('Failed to send message:', error);
+        } finally {
+            setSending(false);
         }
     };
 
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
+    const formatTime = (dateStr: string) => {
+        return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
+
+    const filteredChats = chats.filter(chat =>
+        `${chat.first_name} ${chat.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="text-lg">Загрузка чатов...</div>
+            <div className="flex items-center justify-center h-[calc(100vh-64px)] bg-[#0f172a]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-blue-400 font-medium">Загрузка мессенджера...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-            {/* Список чатов */}
-            <div className={`w-full md:w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 ${selectedChat ? 'hidden md:block' : ''}`}>
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex h-[calc(100vh-64px)] bg-[#0f172a] text-white overflow-hidden">
+            {/* Sidebar */}
+            <div className={cn(
+                "w-full md:w-[380px] flex flex-col border-r border-white/5 bg-[#0f172a] transition-all",
+                selectedChat && "hidden md:flex"
+            )}>
+                <div className="p-4 space-y-4">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-xl font-bold">Сообщения</h1>
-                        <Button variant="ghost" size="icon" onClick={() => window.location.hash = ''}>
+                        <h1 className="text-2xl font-bold">Чаты</h1>
+                        <Button variant="ghost" size="icon" className="hover:bg-white/5" onClick={() => window.history.back()}>
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
                     </div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Поиск контактов..."
+                            className="bg-[#1e293b] border-0 pl-10 h-11 text-sm focus:ring-1 focus:ring-blue-500/50 text-white placeholder:text-muted-foreground rounded-xl"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
                 </div>
 
-                <div className="overflow-y-auto h-[calc(100vh-73px)]">
-                    {chats.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                            <p className="text-lg font-semibold">Нет активных чатов</p>
-                            <p className="text-sm mt-2">Чаты появятся после откликов на вакансии</p>
-                        </div>
-                    ) : (
-                        chats.map((chat) => (
-                            <div
-                                key={chat.other_user_id}
-                                onClick={() => loadMessages(chat)}
-                                className={`p-4 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-all duration-200 ${selectedChat?.other_user_id === chat.other_user_id
-                                        ? 'bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-l-4 border-l-blue-600'
-                                        : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-800 dark:hover:to-gray-700'
-                                    }`}
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div className="relative">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-bold shadow-lg">
-                                            {chat.first_name[0]}{chat.last_name[0]}
-                                        </div>
-                                        {chat.unread_count > 0 && chat.sender_id !== currentUserId && (
-                                            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold shadow-lg animate-pulse">
-                                                {chat.unread_count}
-                                            </div>
-                                        )}
+                <ScrollArea className="flex-1">
+                    <div className="px-2 pb-4">
+                        {filteredChats.length === 0 ? (
+                            <div className="p-8 text-center text-muted-foreground">
+                                <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                                <p>Чатов пока нет</p>
+                            </div>
+                        ) : (
+                            filteredChats.map((chat) => (
+                                <button
+                                    key={chat.other_user_id}
+                                    onClick={() => loadMessages(chat)}
+                                    className={cn(
+                                        "w-full flex items-center gap-4 p-4 rounded-2xl transition-all mb-1 text-left group",
+                                        selectedChat?.other_user_id === chat.other_user_id
+                                            ? "bg-blue-600 shadow-lg shadow-blue-600/20"
+                                            : "hover:bg-white/5"
+                                    )}
+                                >
+                                    <div className="relative flex-shrink-0">
+                                        <Avatar className="h-14 w-14 border-2 border-white/10 shadow-md">
+                                            <AvatarImage src={chat.avatar || undefined} />
+                                            <AvatarFallback className={cn(
+                                                "bg-blue-500 text-white font-bold text-lg",
+                                                selectedChat?.other_user_id === chat.other_user_id && "bg-white/20"
+                                            )}>
+                                                {chat.first_name[0]}{chat.last_name[0]}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute bottom-0 right-0 h-4 w-4 rounded-full bg-green-500 border-2 border-[#0f172a] shadow-sm" />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-1">
-                                            <h3 className="font-bold truncate text-gray-900 dark:text-white">
+                                            <span className={cn(
+                                                "font-bold truncate text-base",
+                                                selectedChat?.other_user_id === chat.other_user_id ? "text-white" : "text-slate-200"
+                                            )}>
                                                 {chat.first_name} {chat.last_name}
-                                            </h3>
-                                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                                {new Date(chat.last_message_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                                            </span>
+                                            <span className={cn(
+                                                "text-xs font-medium shrink-0",
+                                                selectedChat?.other_user_id === chat.other_user_id ? "text-blue-100" : "text-muted-foreground"
+                                            )}>
+                                                {new Date(chat.last_message_at).toLocaleDateString([], { day: 'numeric', month: 'short' })}
                                             </span>
                                         </div>
-                                        <p className={`text-sm truncate ${chat.unread_count > 0 && chat.sender_id !== currentUserId
-                                                ? 'font-bold text-gray-900 dark:text-white'
-                                                : 'text-gray-600 dark:text-gray-400'
-                                            }`}>
-                                            {chat.last_message}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-
-            {/* Окно чата */}
-            <div className={`flex-1 flex flex-col ${!selectedChat ? 'hidden md:flex' : ''}`}>
-                {selectedChat ? (
-                    <>
-                        {/* Шапка чата */}
-                        <div className="p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="md:hidden"
-                                onClick={() => setSelectedChat(null)}
-                            >
-                                <ArrowLeft className="h-5 w-5" />
-                            </Button>
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                                {selectedChat.first_name[0]}{selectedChat.last_name[0]}
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="font-semibold">{selectedChat.first_name} {selectedChat.last_name}</h2>
-                                <div className="flex items-center gap-1.5">
-                                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                                    <p className="text-xs text-gray-500">{isConnected ? 'Онлайн' : 'Оффлайн'}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Сообщения */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-black">
-                            {messages.map((message) => {
-                                const isOwn = message.sender_id === currentUserId;
-                                return (
-                                    <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
-                                        <div className={`max-w-[75%] rounded-2xl px-5 py-3 shadow-lg backdrop-blur-sm ${isOwn
-                                            ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-br-md shadow-blue-500/30'
-                                            : 'bg-gradient-to-br from-slate-700 to-slate-800 dark:from-slate-600 dark:to-slate-700 text-white border border-slate-600 dark:border-slate-500 rounded-bl-md shadow-slate-500/30'
-                                            }`}>
-                                            <p className="break-words leading-relaxed font-medium">{message.content}</p>
-                                            <p className={`text-xs mt-2 ${isOwn ? 'text-blue-100' : 'text-slate-300'} flex items-center gap-1`}>
-                                                <span>{new Date(message.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</span>
-                                                {isOwn && <span className="text-blue-200">✓</span>}
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className={cn(
+                                                "text-sm truncate font-medium",
+                                                selectedChat?.other_user_id === chat.other_user_id
+                                                    ? "text-blue-50/80"
+                                                    : chat.unread_count > 0 ? "text-white font-bold" : "text-muted-foreground"
+                                            )}>
+                                                {chat.last_message}
                                             </p>
+                                            {chat.unread_count > 0 && selectedChat?.other_user_id !== chat.other_user_id && (
+                                                <span className="bg-blue-500 text-white text-[10px] font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1.5 shadow-md animate-pulse">
+                                                    {chat.unread_count}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                );
-                            })}
-                            <div ref={messagesEndRef} />
-                        </div>
-                        {/* Поле ввода */}
-                        <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                            <div className="flex gap-2">
-                                <Input
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    onKeyPress={handleKeyPress}
-                                    placeholder="Написать сообщение..."
-                                    className="flex-1"
-                                />
-                                <Button onClick={sendMessage} disabled={!newMessage.trim()}>
-                                    <Send className="h-5 w-5" />
+                                </button>
+                            ))
+                        )}
+                    </div>
+                </ScrollArea>
+            </div>
+
+            {/* Chat Area */}
+            <div className={cn(
+                "flex-1 flex flex-col bg-[#0b1120] transition-all relative",
+                !selectedChat && "hidden md:flex"
+            )}>
+                {selectedChat ? (
+                    <>
+                        {/* Header */}
+                        <div className="h-20 border-b border-white/5 px-6 flex items-center justify-between bg-[#0f172a]/50 backdrop-blur-md sticky top-0 z-10">
+                            <div className="flex items-center gap-4">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="md:hidden -ml-2 hover:bg-white/5"
+                                    onClick={() => setSelectedChat(null)}
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </Button>
+                                <div className="relative">
+                                    <Avatar className="h-12 w-12 border-2 border-blue-500/20 shadow-lg">
+                                        <AvatarImage src={selectedChat.avatar || undefined} />
+                                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">
+                                            {selectedChat.first_name[0]}{selectedChat.last_name[0]}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-[#0b1120]" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white tracking-tight">
+                                        {selectedChat.first_name} {selectedChat.last_name}
+                                    </h2>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs text-blue-400 font-semibold uppercase tracking-wider">Online</span>
+                                        <span className="h-1 w-1 rounded-full bg-white/20" />
+                                        <span className="text-xs text-muted-foreground">активен сейчас</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/5 hidden sm:flex">
+                                    <Phone className="h-5 w-5" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/5 hidden sm:flex">
+                                    <Video className="h-5 w-5" />
+                                </Button>
+                                <div className="h-6 w-[1px] bg-white/5 mx-2 hidden sm:block" />
+                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white hover:bg-white/5">
+                                    <MoreVertical className="h-5 w-5" />
                                 </Button>
                             </div>
                         </div>
+
+                        {/* Messages */}
+                        <ScrollArea className="flex-1 bg-gradient-to-b from-[#0b1120] to-[#0f172a]/50">
+                            <div className="p-6 space-y-6">
+                                {messages.map((msg, idx) => {
+                                    const isMe = msg.sender_id === currentUser?.id;
+                                    const nextMsg = messages[idx + 1];
+                                    const isLastInGroup = !nextMsg || nextMsg.sender_id !== msg.sender_id;
+
+                                    return (
+                                        <div
+                                            key={msg.id}
+                                            className={cn(
+                                                "flex w-full group animate-in fade-in slide-in-from-bottom-2 duration-300",
+                                                isMe ? "justify-end" : "justify-start"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "max-w-[70%] flex flex-col",
+                                                isMe ? "items-end" : "items-start"
+                                            )}>
+                                                <div className={cn(
+                                                    "px-5 py-3.5 rounded-2xl shadow-xl relative transition-all group-hover:scale-[1.01]",
+                                                    isMe
+                                                        ? "bg-blue-600 text-white rounded-tr-[4px] shadow-blue-600/10"
+                                                        : "bg-[#1e293b] text-slate-100 rounded-tl-[4px] border border-white/5"
+                                                )}>
+                                                    <p className="text-base leading-relaxed break-words font-medium">
+                                                        {msg.content}
+                                                    </p>
+                                                    <div className={cn(
+                                                        "flex items-center gap-1.5 mt-2 justify-end opacity-60",
+                                                        isMe ? "text-blue-50" : "text-slate-400"
+                                                    )}>
+                                                        <span className="text-[10px] font-bold">
+                                                            {formatTime(msg.created_at)}
+                                                        </span>
+                                                        {isMe && (
+                                                            msg.is_read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div ref={messagesEndRef} className="h-4" />
+                            </div>
+                        </ScrollArea>
+
+                        {/* Input */}
+                        <div className="p-6 bg-[#0f172a]/80 backdrop-blur-xl border-t border-white/5">
+                            <form onSubmit={sendMessage} className="flex items-center gap-3">
+                                <div className="flex gap-1">
+                                    <Button variant="ghost" size="icon" type="button" className="text-muted-foreground hover:text-white hover:bg-white/5 h-12 w-12 rounded-xl">
+                                        <Paperclip className="h-5 w-5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" type="button" className="text-muted-foreground hover:text-white hover:bg-white/5 h-12 w-12 rounded-xl hidden sm:flex">
+                                        <Smile className="h-5 w-5" />
+                                    </Button>
+                                </div>
+                                <div className="flex-1 relative">
+                                    <Input
+                                        placeholder="Введите сообщение..."
+                                        className="bg-[#1e293b] border-0 h-12 px-6 rounded-2xl focus:ring-2 focus:ring-blue-500/30 text-white text-base placeholder:text-muted-foreground/50 w-full"
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        disabled={sending}
+                                    />
+                                </div>
+                                <Button
+                                    type="submit"
+                                    className={cn(
+                                        "h-12 w-12 rounded-2xl bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all p-0 flex-shrink-0",
+                                        !newMessage.trim() && "opacity-50 grayscale"
+                                    )}
+                                    disabled={!newMessage.trim() || sending}
+                                >
+                                    <Send className="h-5 w-5 text-white" />
+                                </Button>
+                            </form>
+                        </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-500">
-                        <div className="text-center">
-                            <p className="text-lg">Выберите чат для начала общения</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gradient-to-b from-[#0b1120] to-[#0f172a]">
+                        <div className="relative mb-8 text-blue-500">
+                            <div className="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full" />
+                            <div className="relative w-32 h-32 rounded-3xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center backdrop-blur-sm">
+                                <MessageSquare className="h-16 w-16 opacity-40 animate-pulse" />
+                            </div>
                         </div>
+                        <h3 className="text-2xl font-bold text-white mb-3">Ваш Мессенджер</h3>
+                        <p className="text-slate-400 max-w-sm text-lg font-medium leading-relaxed">
+                            Выберите собеседника из списка слева, чтобы начать продуктивный диалог
+                        </p>
                     </div>
                 )}
             </div>

@@ -22,6 +22,7 @@ interface HeaderProps {
   onLoginClick?: () => void;
   onRegisterClick?: () => void;
   onProfileClick?: () => void;
+  onMessagesClick?: () => void;
   onAdminClick?: () => void;
   onLogout?: () => void;
   currentUser?: UserResponse | null;
@@ -39,6 +40,7 @@ export function Header({
   onLoginClick,
   onRegisterClick,
   onProfileClick,
+  onMessagesClick,
   onAdminClick,
   onLogout,
   currentUser
@@ -155,7 +157,14 @@ export function Header({
                 <div className="flex items-center gap-1 sm:gap-3">
                   <div className="flex items-center gap-1 sm:gap-2">
                     <NotificationsPopover onNavigateToProfile={onProfileClick} />
-                    <MessengerModal />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative hover:bg-white/10 flex-shrink-0"
+                      onClick={onMessagesClick}
+                    >
+                      <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                    </Button>
                   </div>
 
                   <div className="hidden xl:block h-6 w-[1px] bg-border/20" />
