@@ -14,8 +14,8 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
             title: 'OnePlace Работа',
             description: 'Поиск работы, подработок и проектов. Вакансии, резюме и карьерный рост.',
             icon: Briefcase,
-            color: 'bg-blue-500',
-            gradient: 'from-blue-500 to-blue-600',
+            color: 'bg-blue-600',
+            gradient: 'from-blue-600 to-blue-700',
             available: true,
             action: () => onSelectService('jobs')
         },
@@ -24,8 +24,8 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
             title: 'OnePlace Маркет',
             description: 'Маркетплейс товаров и услуг. Покупайте и продавайте безопасно.',
             icon: Store,
-            color: 'bg-purple-500',
-            gradient: 'from-purple-500 to-purple-600',
+            color: 'bg-purple-600',
+            gradient: 'from-purple-600 to-purple-700',
             available: false
         },
         {
@@ -33,8 +33,8 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
             title: 'OnePlace Сообщество',
             description: 'Профессиональная сеть. Нетворкинг, общение и обмен опытом.',
             icon: Users,
-            color: 'bg-green-500',
-            gradient: 'from-green-500 to-green-600',
+            color: 'bg-green-600',
+            gradient: 'from-green-600 to-green-700',
             available: false
         },
         {
@@ -42,8 +42,8 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
             title: 'OnePlace Услуги',
             description: 'Заказ бытовых и бизнес услуг. Мастера, фрилансеры и исполнители.',
             icon: Hammer,
-            color: 'bg-orange-500',
-            gradient: 'from-orange-500 to-orange-600',
+            color: 'bg-orange-600',
+            gradient: 'from-orange-600 to-orange-700',
             available: false
         }
     ];
@@ -81,11 +81,8 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
                             )} />
 
                             <div className="relative z-10 flex flex-col h-full">
-                                <div className={cn(
-                                    "w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg mb-6",
-                                    `bg-gradient-to-br ${service.gradient}`
-                                )}>
-                                    <service.icon className="w-6 h-6" />
+                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6 bg-muted/30">
+                                    <service.icon className="w-6 h-6 text-foreground" />
                                 </div>
 
                                 <h3 className="text-xl font-bold text-foreground mb-2">
