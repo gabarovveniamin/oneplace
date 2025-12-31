@@ -44,7 +44,9 @@ seedDatabase();
 testConnection();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 
 // Request logger
 app.use((req, res, next) => {
@@ -95,6 +97,9 @@ app.use('/api/favorites', favoritesRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+
+// Serve static files
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // 404 handler
 app.use(notFound);

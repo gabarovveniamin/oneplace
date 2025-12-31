@@ -94,7 +94,7 @@ export function Header({
 
   return (
     <div className="relative">
-      <header className="bg-[#0f172a] shadow-lg border-b border-white/5 sticky top-0 z-50">
+      <header className="header-adaptive shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -110,11 +110,11 @@ export function Header({
             <div className="flex-1 min-w-[150px] max-w-2xl mx-2 sm:mx-6">
               <div className="flex items-center space-x-2">
                 <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 icon-adaptive h-4 w-4" />
                   <Input
                     type="text"
                     placeholder="Поиск..."
-                    className="pl-10 pr-10 bg-[#1e293b]/50 border-0 rounded-lg focus:bg-[#1e293b] focus:ring-1 focus:ring-blue-500/50 text-sm h-10 w-full"
+                    className="pl-10 pr-10 search-input-adaptive border-0 rounded-lg text-sm h-10 w-full"
                     value={searchValue}
                     onChange={handleSearchInputChange}
                   />
@@ -124,7 +124,7 @@ export function Header({
                       variant="ghost"
                       size="sm"
                       onClick={() => onSearchValueChange?.('')}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover:bg-white/10"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover-adaptive rounded-full flex items-center justify-center icon-adaptive"
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -135,9 +135,9 @@ export function Header({
                   variant="ghost"
                   size="sm"
                   onClick={toggleAdvancedSearch}
-                  className="h-10 w-10 p-0 hover:bg-white/10 relative flex-shrink-0 hidden md:flex"
+                  className="h-10 w-10 p-0 hover-adaptive rounded-lg relative flex-shrink-0 hidden md:flex items-center justify-center"
                 >
-                  <Filter className="h-5 w-5 text-muted-foreground" />
+                  <Filter className="h-5 w-5 icon-adaptive" />
                   {activeFiltersCount > 0 && (
                     <span className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
                       {activeFiltersCount}
@@ -160,23 +160,23 @@ export function Header({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="relative hover:bg-white/10 flex-shrink-0"
+                      className="relative hover-adaptive rounded-lg flex-shrink-0"
                       onClick={onMessagesClick}
                     >
-                      <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                      <MessageSquare className="h-5 w-5 icon-adaptive" />
                     </Button>
                   </div>
 
-                  <div className="hidden xl:block h-6 w-[1px] bg-border/20" />
+                  <div className="hidden xl:block h-6 w-[1px] vertical-divider-adaptive" />
 
                   <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="hidden 2xl:block text-sm font-medium text-foreground whitespace-nowrap">
+                    <span className="hidden 2xl:block text-sm font-medium text-adaptive whitespace-nowrap">
                       {currentUser.firstName} {currentUser.lastName}
                     </span>
 
                     <Button
                       variant="ghost"
-                      className="hidden lg:flex text-sm font-medium hover:text-blue-500 px-2"
+                      className="hidden lg:flex text-sm font-medium text-adaptive hover-adaptive px-2"
                       onClick={onProfileClick}
                     >
                       Профиль
@@ -185,11 +185,11 @@ export function Header({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-muted-foreground hover:text-red-500 h-9 w-9"
+                      className="hover-adaptive h-9 w-9 rounded-lg"
                       onClick={onLogout}
                       title="Выйти"
                     >
-                      <LogOut className="h-5 w-5" />
+                      <LogOut className="h-5 w-5 icon-adaptive" />
                     </Button>
                   </div>
 
@@ -207,7 +207,7 @@ export function Header({
                 <div className="flex items-center space-x-2">
                   <Button
                     variant="ghost"
-                    className="text-sm font-medium hover:text-blue-500"
+                    className="text-sm font-medium text-adaptive hover-adaptive"
                     onClick={onLoginClick}
                   >
                     Войти

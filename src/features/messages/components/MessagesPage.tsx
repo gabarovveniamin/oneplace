@@ -10,16 +10,26 @@ import {
     Paperclip,
     Smile,
     Check,
-    CheckCheck
+    CheckCheck,
+    Menu,
+    Mic,
+    Square,
+    Play,
+    Pause,
+    Trash2
 } from 'lucide-react';
 import { Button } from '@/shared/ui/components/button';
-import { Input } from '@/shared/ui/components/input';
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/components/avatar";
 import { ScrollArea } from "@/shared/ui/components/scroll-area";
 import { cn } from '@/shared/ui/components/utils';
 import { authApiService } from '@/core/api/auth';
+import { config } from '@/config/env';
 
-export function MessagesPage() {
+interface MessagesPageProps {
+    isDarkMode: boolean;
+}
+
+export function MessagesPage({ isDarkMode }: MessagesPageProps) {
     const { socket } = useSocket();
     const [chats, setChats] = useState<Chat[]>([]);
     const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
@@ -28,10 +38,108 @@ export function MessagesPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
     const currentUser = authApiService.getCurrentUser();
+    const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+    const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Загрузка списка чатов
+    // Voice Recording State
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingDuration, setRecordingDuration] = useState(0);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Popular emojis - expanded collection
+    const emojis = [
+        // Smileys & Emotion
+        '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+        '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
+        '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
+        '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
+        '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮',
+        '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓',
+        '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺',
+        '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣',
+        '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈',
+        '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾',
+
+        // Gestures & Body Parts
+        '👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞',
+        '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍',
+        '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝',
+        '🙏', '✍️', '💅', '🤳', '💪', '🦾', '🦿', '🦵', '🦶', '👂',
+        '🦻', '👃', '🧠', '🦷', '🦴', '👀', '👁️', '👅', '👄', '💋',
+
+        // People & Fantasy
+        '👶', '👧', '🧒', '👦', '👩', '🧑', '👨', '👩‍🦱', '🧑‍🦱', '👨‍🦱',
+        '👩‍🦰', '🧑‍🦰', '👨‍🦰', '👱‍♀️', '👱', '👱‍♂️', '👩‍🦳', '🧑‍🦳', '👨‍🦳', '👩‍🦲',
+        '🧑‍🦲', '👨‍🦲', '🧔', '👵', '🧓', '👴', '👲', '👳‍♀️', '👳', '👳‍♂️',
+        '🧕', '👮‍♀️', '👮', '👮‍♂️', '👷‍♀️', '👷', '👷‍♂️', '💂‍♀️', '💂', '💂‍♂️',
+        '🕵️‍♀️', '🕵️', '🕵️‍♂️', '👩‍⚕️', '🧑‍⚕️', '👨‍⚕️', '👩‍🌾', '🧑‍🌾', '👨‍🌾', '👩‍🍳',
+
+        // Animals & Nature
+        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+        '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒',
+        '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇',
+        '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜',
+        '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕',
+        '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳',
+        '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛',
+        '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖',
+
+        // Food & Drink
+        '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🍈',
+        '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦',
+        '🥬', '🥒', '🌶️', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐',
+        '🥯', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇',
+        '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥪',
+        '🥙', '🧆', '🌮', '🌯', '🥗', '🥘', '🥫', '🍝', '🍜', '🍲',
+        '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥',
+        '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰',
+        '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜',
+
+        // Activities & Sports
+        '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱',
+        '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🥅', '⛳', '🪁',
+        '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷', '⛸️',
+        '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️', '🤼', '🤸', '🤺', '⛹️',
+        '🤾', '🏌️', '🏇', '🧘', '🏊', '🤽', '🚣', '🧗', '🚴', '🚵',
+
+        // Travel & Places
+        '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐',
+        '🚚', '🚛', '🚜', '🦯', '🦽', '🦼', '🛴', '🚲', '🛵', '🏍️',
+        '🛺', '🚨', '🚔', '🚍', '🚘', '🚖', '🚡', '🚠', '🚟', '🚃',
+        '🚋', '🚞', '🚝', '🚄', '🚅', '🚈', '🚂', '🚆', '🚇', '🚊',
+        '🚉', '✈️', '🛫', '🛬', '🛩️', '💺', '🛰️', '🚀', '🛸', '🚁',
+
+        // Objects
+        '⌚', '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '🖲️', '🕹️',
+        '🗜️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥',
+        '📽️', '🎞️', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🎚️',
+        '🎛️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '⌛', '⏳', '📡', '🔋',
+
+        // Symbols & Hearts
+        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
+        '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️',
+        '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐',
+        '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐',
+        '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳',
+
+        // Popular & Misc
+        '✨', '⭐', '🌟', '💫', '⚡', '🔥', '💥', '💯', '✔️', '✅',
+        '❌', '❎', '➕', '➖', '✖️', '➗', '💲', '💱', '™️', '©️',
+        '®️', '〰️', '➰', '➿', '🔚', '🔙', '🔛', '🔝', '🔜', '✔️',
+        '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪',
+        '🟤', '🔺', '🔻', '🔸', '🔹', '🔶', '🔷', '🔳', '🔲', '▪️',
+        '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦',
+        '🟪', '⬛', '⬜', '🟫', '🎉', '🎊', '🎈', '🎁', '🏆', '🥇',
+        '🥈', '🥉', '🏅', '🎖️', '🎗️', '🎫', '🎟️', '🎪', '🎭', '🎨',
+    ];
+
     const loadChats = useCallback(async () => {
         try {
             const data = await chatApiService.getChats();
@@ -47,7 +155,6 @@ export function MessagesPage() {
         loadChats();
     }, [loadChats]);
 
-    // Загрузка сообщений
     const loadMessages = useCallback(async (chat: Chat) => {
         try {
             setSelectedChat(chat);
@@ -63,7 +170,6 @@ export function MessagesPage() {
         }
     }, [loadChats]);
 
-    // WebSocket listeners
     useEffect(() => {
         if (!socket) return;
 
@@ -82,15 +188,71 @@ export function MessagesPage() {
         };
 
         socket.on('new_message', handleNewMessage);
+
+        // Status & Typing listeners
+        socket.on('online_users', (users: string[]) => {
+            setOnlineUsers(new Set(users));
+        });
+
+        socket.on('user_status_change', ({ userId, status }: { userId: string, status: 'online' | 'offline' }) => {
+            setOnlineUsers(prev => {
+                const next = new Set(prev);
+                if (status === 'online') next.add(userId);
+                else next.delete(userId);
+                return next;
+            });
+        });
+
+        socket.on('user_typing', ({ userId }: { userId: string }) => {
+            setTypingUsers(prev => {
+                const next = new Set(prev);
+                next.add(userId);
+                return next;
+            });
+        });
+
+        socket.on('user_stop_typing', ({ userId }: { userId: string }) => {
+            setTypingUsers(prev => {
+                const next = new Set(prev);
+                next.delete(userId);
+                return next;
+            });
+        });
+
         return () => {
             socket.off('new_message', handleNewMessage);
+            socket.off('online_users');
+            socket.off('user_status_change');
+            socket.off('user_typing');
+            socket.off('user_stop_typing');
         };
     }, [socket, selectedChat, loadChats]);
 
-    // Auto-scroll
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
     }, [messages]);
+
+    // Close emoji picker when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+                setShowEmojiPicker(false);
+            }
+        };
+
+        if (showEmojiPicker) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showEmojiPicker]);
+
+    const addEmoji = (emoji: string) => {
+        setNewMessage(prev => prev + emoji);
+        setShowEmojiPicker(false);
+    };
 
     const sendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -111,100 +273,275 @@ export function MessagesPage() {
         return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // Use simplest constructor to let browser pick best supported format
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingDuration(0);
+
+            if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+            recordingTimerRef.current = setInterval(() => {
+                setRecordingDuration(prev => prev + 1);
+            }, 1000);
+
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            alert('Could not access microphone. Please allow permissions.');
+        }
+    };
+
+    const stopAndSendRecording = async () => {
+        if (!mediaRecorderRef.current || !selectedChat) return;
+
+        const recorder = mediaRecorderRef.current;
+
+        if (recorder.state !== 'recording') {
+            setIsRecording(false);
+            return;
+        }
+
+        return new Promise<void>((resolve) => {
+            recorder.onstop = async () => {
+                if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+
+                // Default to standard webm if not specified, usually browsers are good at this
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+                if (audioBlob.size > 0) {
+                    try {
+                        const filename = `voice_${Date.now()}.webm`;
+                        // Create a file object to preserve name if needed, though FormData handles blob
+                        await chatApiService.sendVoiceMessage(selectedChat.other_user_id, audioBlob);
+                    } catch (error) {
+                        console.error('Failed to send voice:', error);
+                    }
+                } else {
+                    console.error('Recording was empty');
+                }
+
+                setIsRecording(false);
+                setRecordingDuration(0);
+                recorder.stream.getTracks().forEach(t => t.stop());
+                resolve();
+            };
+
+            recorder.stop();
+        });
+    };
+
+    const cancelRecording = () => {
+        if (!mediaRecorderRef.current) return;
+        mediaRecorderRef.current.onstop = () => {
+            // Just cleanup
+            mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorderRef.current.stop();
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+        setIsRecording(false);
+        setRecordingDuration(0);
+        audioChunksRef.current = [];
+    };
+
+    const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const renderMessageContent = (msg: ChatMessage, isMe: boolean) => {
+        if (msg.content.includes('/uploads/voice/')) {
+            const url = msg.content.startsWith('http')
+                ? msg.content
+                : `${config.api.baseUrl.replace('/api', '')}${msg.content}`;
+
+            return (
+                <div className="flex items-center gap-2 min-w-[200px]">
+                    {/* Use key to force re-render if url changes */}
+                    <audio
+                        key={url}
+                        controls
+                        preload="metadata"
+                        crossOrigin="anonymous"
+                        src={url}
+                        className="h-10 w-[240px]"
+                        style={{
+                            borderRadius: '20px'
+                        }}
+                        onError={(e) => console.error('Audio load error:', e)}
+                    />
+                </div>
+            );
+        }
+        return msg.content;
+    };
+
     const filteredChats = chats.filter(chat =>
         `${chat.first_name} ${chat.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    // Theme Configuration
+    const theme = {
+        bg: isDarkMode ? '#17212b' : '#ffffff',
+        text: isDarkMode ? '#ffffff' : '#000000',
+        subText: isDarkMode ? '#aaaaaa' : '#707579',
+
+        sidebarBg: isDarkMode ? '#17212b' : '#ffffff',
+        sidebarBorder: isDarkMode ? '#0e1621' : '#dfe1e5',
+        sidebarHover: isDarkMode ? '#202b36' : '#f4f4f5',
+        sidebarActive: isDarkMode ? '#2b5278' : '#3390ec',
+        sidebarActiveText: '#ffffff',
+
+        chatBgColor: isDarkMode ? '#0e1621' : '#a2b3be',
+
+        headerBg: isDarkMode ? '#17212b' : '#ffffff',
+        headerBorder: isDarkMode ? '#0e1621' : '#dfe1e5',
+
+        inputBg: isDarkMode ? '#17212b' : '#ffffff',
+        inputBorder: isDarkMode ? '#0e1621' : '#dfe1e5',
+
+        myMessageBg: isDarkMode ? '#2b5278' : '#effdde',
+        myMessageText: isDarkMode ? '#ffffff' : '#000000',
+        otherMessageBg: isDarkMode ? '#182533' : '#ffffff',
+        otherMessageText: isDarkMode ? '#ffffff' : '#000000',
+    };
+
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-full bg-slate-50 dark:bg-[#0e1621]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-8 h-8 border-2 border-blue-500 dark:border-[#6c7883] border-t-transparent rounded-full animate-spin" />
-                </div>
+            <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 64px)', backgroundColor: theme.bg }}>
+                <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+                    style={{ borderColor: isDarkMode ? '#6c7883' : '#3390ec', borderTopColor: 'transparent' }} />
             </div>
         );
     }
 
     return (
-        <div className="flex h-[calc(100vh-64px)] bg-white dark:bg-[#17212b] text-gray-900 dark:text-white overflow-hidden font-sans">
-            {/* Sidebar */}
-            <div className={cn(
-                "w-full md:w-[320px] flex flex-col border-r border-gray-200 dark:border-[#0e1621] bg-white dark:bg-[#17212b] transition-all",
-                selectedChat && "hidden md:flex"
-            )}>
-                <div className="p-2 bg-white dark:bg-[#17212b]">
-                    <div className="flex items-center justify-between mb-3 px-2">
-                        <h1 className="text-lg font-medium text-gray-900 dark:text-white">OnePlace Messenger</h1>
-                    </div>
-                    <div className="relative px-2">
-                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 dark:text-[#707579]" />
-                        <Input
-                            placeholder="Поиск"
-                            className="bg-gray-100 dark:bg-[#242f3d] border-0 pl-10 h-10 text-[15px] focus:ring-0 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-[#707579] rounded-full"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+        <div
+            className="flex w-full overflow-hidden font-sans"
+            style={{
+                height: 'calc(100vh - 64px)',
+                backgroundColor: theme.bg,
+                color: theme.text,
+            }}
+        >
+            {/* LEFT SIDEBAR - FIXED WIDTH */}
+            <div
+                className="flex-shrink-0 flex flex-col border-r"
+                style={{
+                    width: '300px',
+                    flex: '0 0 300px',
+                    backgroundColor: theme.sidebarBg,
+                    borderColor: theme.sidebarBorder
+                }}
+            >
+                {/* Sidebar Header */}
+                <div className="h-[60px] px-4 flex items-center justify-between flex-shrink-0 border-b"
+                    style={{ backgroundColor: theme.sidebarBg, borderColor: theme.sidebarBorder }}>
+                    <div className="flex items-center gap-4 w-full">
+                        <Menu className="w-6 h-6 cursor-pointer flex-shrink-0" style={{ color: theme.subText }} />
+                        <div className="relative flex-1 min-w-0">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5" style={{ color: theme.subText }} />
+                            <input
+                                placeholder="Search"
+                                className="w-full h-10 pl-10 pr-4 rounded-full text-[15px] focus:outline-none transition-all"
+                                style={{
+                                    backgroundColor: isDarkMode ? '#242f3d' : '#f1f1f1',
+                                    color: theme.text,
+                                    border: 'none'
+                                }}
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
                     </div>
                 </div>
 
+                {/* Chat List */}
                 <ScrollArea className="flex-1">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col py-2">
                         {filteredChats.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500 dark:text-[#707579]">
-                                <p>Чаты не найдены</p>
+                            <div className="p-8 text-center" style={{ color: theme.subText }}>
+                                <p>No chats found</p>
                             </div>
                         ) : (
                             filteredChats.map((chat) => (
                                 <button
                                     key={chat.other_user_id}
                                     onClick={() => loadMessages(chat)}
-                                    className={cn(
-                                        "w-full flex items-center gap-3 px-4 py-3 transition-colors",
-                                        selectedChat?.other_user_id === chat.other_user_id
-                                            ? "bg-blue-500 dark:bg-[#2b5278]"
-                                            : "hover:bg-gray-100 dark:hover:bg-[#202b36]"
-                                    )}
+                                    className="w-full flex items-center gap-2 px-2 py-2 mx-1 rounded-lg transition-colors duration-200"
+                                    style={{
+                                        backgroundColor: selectedChat?.other_user_id === chat.other_user_id
+                                            ? theme.sidebarActive
+                                            : 'transparent',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (selectedChat?.other_user_id !== chat.other_user_id) {
+                                            e.currentTarget.style.backgroundColor = theme.sidebarHover;
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (selectedChat?.other_user_id !== chat.other_user_id) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }
+                                    }}
                                 >
                                     <div className="relative flex-shrink-0">
-                                        <Avatar className="h-12 w-12 bg-gradient-to-br from-[#4facfe] to-[#00f2fe]">
+                                        <Avatar className="h-11 w-11 text-base">
                                             <AvatarImage src={chat.avatar || undefined} />
-                                            <AvatarFallback className="text-white font-medium text-lg bg-transparent">
+                                            <AvatarFallback style={{ backgroundColor: '#58bdf3', color: '#fff' }}>
                                                 {chat.first_name[0]}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div className={cn(
-                                            "absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full flex items-center justify-center",
-                                            selectedChat?.other_user_id === chat.other_user_id ? "bg-blue-500 dark:bg-[#2b5278]" : "bg-white dark:bg-[#17212b]"
-                                        )}>
-                                            <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                                        </div>
+                                        {onlineUsers.has(chat.other_user_id) && (
+                                            <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2"
+                                                style={{
+                                                    backgroundColor: '#00c73e',
+                                                    borderColor: selectedChat?.other_user_id === chat.other_user_id ? theme.sidebarActive : theme.sidebarBg
+                                                }}
+                                            />
+                                        )}
                                     </div>
-                                    <div className="flex-1 min-w-0 border-b border-gray-100 dark:border-[#0e1621]/50 pb-3 ml-1">
-                                        <div className="flex items-center justify-between mb-0.5">
-                                            <span className={cn(
-                                                "font-medium truncate text-[15px]",
-                                                selectedChat?.other_user_id === chat.other_user_id ? "text-white" : "text-gray-900 dark:text-white"
-                                            )}>
+                                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="font-medium truncate text-[14px]"
+                                                style={{
+                                                    color: selectedChat?.other_user_id === chat.other_user_id ? theme.sidebarActiveText : theme.text
+                                                }}>
                                                 {chat.first_name} {chat.last_name}
                                             </span>
-                                            <span className={cn(
-                                                "text-xs shrink-0",
-                                                selectedChat?.other_user_id === chat.other_user_id ? "text-blue-100 dark:text-[#a2acb4]" : "text-gray-400 dark:text-[#6c7883]"
-                                            )}>
+                                            <span className="text-[11px] shrink-0 ml-1"
+                                                style={{
+                                                    color: selectedChat?.other_user_id === chat.other_user_id ? 'rgba(255,255,255,0.7)' : theme.subText
+                                                }}>
                                                 {new Date(chat.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className={cn(
-                                                "text-[14px] truncate",
-                                                selectedChat?.other_user_id === chat.other_user_id
-                                                    ? "text-blue-50 dark:text-[#e5e5e5]"
-                                                    : "text-gray-500 dark:text-[#707579]"
-                                            )}>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[13px] truncate"
+                                                style={{
+                                                    color: selectedChat?.other_user_id === chat.other_user_id ? 'rgba(255,255,255,0.8)' : theme.subText
+                                                }}>
                                                 {chat.last_message}
                                             </p>
                                             {chat.unread_count > 0 && selectedChat?.other_user_id !== chat.other_user_id && (
-                                                <span className="bg-blue-500 dark:bg-[#6c7883] text-white text-[11px] font-bold rounded-full h-5 min-w-[20px] flex items-center justify-center px-1.5">
+                                                <span className="text-white text-[12px] font-bold rounded-full px-2 h-5 flex items-center justify-center min-w-[20px]"
+                                                    style={{ backgroundColor: isDarkMode ? '#6c7883' : '#c4c9cc' }}>
                                                     {chat.unread_count}
                                                 </span>
                                             )}
@@ -217,131 +554,277 @@ export function MessagesPage() {
                 </ScrollArea>
             </div>
 
-            {/* Chat Area */}
-            <div className={cn(
-                "flex-1 flex flex-col bg-slate-50 dark:bg-[#0e1621] relative",
-                !selectedChat && "hidden md:flex"
-            )}>
+            {/* RIGHT CHAT AREA - FLEXIBLE */}
+            <div
+                className="flex flex-col"
+                style={{
+                    flex: '1',
+                    backgroundColor: theme.chatBgColor,
+                    backgroundImage: isDarkMode ? 'none' : 'url("https://web.telegram.org/img/bg_0.png")',
+                    backgroundSize: 'cover',
+                }}
+            >
                 {selectedChat ? (
                     <>
-                        {/* Header */}
-                        <div className="h-[60px] border-b border-gray-200 dark:border-[#0e1621] px-4 flex items-center justify-between bg-white dark:bg-[#17212b] sticky top-0 z-10 shadow-sm">
-                            <div className="flex items-center gap-3">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="md:hidden -ml-2 text-gray-500 dark:text-[#707579] hover:bg-gray-100 dark:hover:bg-[#2b2d31]"
-                                    onClick={() => setSelectedChat(null)}
-                                >
-                                    <ArrowLeft className="h-5 w-5" />
-                                </Button>
-                                <div className="flex flex-col">
-                                    <h2 className="text-[15px] font-bold text-gray-900 dark:text-white leading-tight">
+                        {/* Chat Header */}
+                        <div className="h-[60px] px-4 md:px-6 flex items-center justify-between shadow-sm z-20 flex-shrink-0"
+                            style={{ backgroundColor: theme.headerBg, borderBottom: `1px solid ${theme.headerBorder}` }}>
+                            <div className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <h2 className="text-[16px] font-semibold leading-tight truncate" style={{ color: theme.text }}>
                                         {selectedChat.first_name} {selectedChat.last_name}
                                     </h2>
-                                    <span className="text-[13px] text-gray-500 dark:text-[#707579]">был(а) недавно</span>
+                                    <span className="text-[13px] truncate" style={{ color: theme.subText }}>
+                                        {typingUsers.has(selectedChat.other_user_id)
+                                            ? <span className="text-[#3390ec] animate-pulse">печатает...</span>
+                                            : (onlineUsers.has(selectedChat.other_user_id)
+                                                ? <span className="text-[#00c73e]">в сети</span>
+                                                : 'был(а) недавно')}
+                                    </span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4 text-gray-400 dark:text-[#707579]">
-                                <Search className="h-5 w-5 cursor-pointer hover:text-gray-600 dark:hover:text-white" />
-                                <Phone className="h-5 w-5 cursor-pointer hover:text-gray-600 dark:hover:text-white" />
-                                <MoreVertical className="h-5 w-5 cursor-pointer hover:text-gray-600 dark:hover:text-white" />
+                            <div className="flex items-center gap-4 md:gap-6 flex-shrink-0">
+                                <Search className="h-5 w-5 md:h-6 md:w-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: theme.subText }} />
+                                <Phone className="h-5 w-5 md:h-6 md:w-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: theme.subText }} />
+                                <MoreVertical className="h-5 w-5 md:h-6 md:w-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: theme.subText }} />
                             </div>
                         </div>
 
-                        {/* Messages */}
-                        <ScrollArea className="flex-1 bg-slate-50 dark:bg-[#0e1621]">
-                            <div className="p-4 space-y-2 flex flex-col justify-end min-h-full">
-                                {messages.length === 0 ? (
-                                    <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-[#707579]">
-                                        <p>Нет сообщений. Напишите первым!</p>
-                                    </div>
-                                ) : (
-                                    messages.map((msg, idx) => {
-                                        const isMe = msg.sender_id === currentUser?.id;
-
-                                        return (
-                                            <div
-                                                key={msg.id}
-                                                className={cn(
-                                                    "max-w-[70%] px-3 py-1.5 rounded-lg text-[15px] leading-relaxed relative group break-words shadow-sm",
-                                                    isMe
-                                                        ? "bg-blue-500 dark:bg-[#2b5278] text-white self-end rounded-tr-sm"
-                                                        : "bg-white dark:bg-[#182533] text-gray-900 dark:text-white self-start rounded-tl-sm border border-gray-100 dark:border-transparent"
-                                                )}
-                                            >
-                                                {msg.content}
-                                                <div className="float-right ml-2 mt-2 flex items-center gap-1 opacity-60 select-none">
-                                                    <span className={cn("text-[11px]", isMe ? "text-blue-50 dark:text-[#a2acb4]" : "text-gray-400 dark:text-[#a2acb4]")}>
-                                                        {formatTime(msg.created_at)}
-                                                    </span>
-                                                    {isMe && (
-                                                        <span className="text-blue-50 dark:text-[#a2acb4]">
-                                                            {msg.is_read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />}
-                                                        </span>
-                                                    )}
-                                                </div>
+                        {/* Messages List */}
+                        <div className="flex-1 overflow-hidden relative">
+                            <ScrollArea className="h-full">
+                                <div className="w-full h-full px-3 md:px-6 py-4 flex flex-col justify-end min-h-full">
+                                    {messages.length === 0 ? (
+                                        <div className="flex-1 flex items-center justify-center" style={{ color: theme.subText }}>
+                                            <div className="bg-black/20 rounded-full px-4 py-2 text-sm text-white backdrop-blur-sm">
+                                                No messages here yet...
                                             </div>
-                                        );
-                                    })
-                                )}
-                                <div ref={messagesEndRef} className="h-0" />
-                            </div>
-                        </ScrollArea>
-
-                        {/* Input */}
-                        <div className="p-4 bg-white dark:bg-[#17212b] border-t border-gray-200 dark:border-[#0e1621]">
-                            <form onSubmit={sendMessage} className="flex items-end gap-2 max-w-4xl mx-auto w-full">
-                                <Button variant="ghost" size="icon" type="button" className="text-gray-400 dark:text-[#707579] hover:bg-gray-100 dark:hover:bg-white/5 h-10 w-10 flex-shrink-0">
-                                    <Paperclip className="h-6 w-6" />
-                                </Button>
-
-                                <div className="flex-1 bg-gray-100 dark:bg-[#0e1621] rounded-xl flex items-center min-h-[42px] py-1">
-                                    <textarea
-                                        placeholder="Написать сообщение..."
-                                        className="bg-transparent border-0 px-4 focus:ring-0 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-[#707579] w-full resize-none h-[24px] max-h-[120px] py-0 leading-6 focus:outline-none"
-                                        value={newMessage}
-                                        onChange={(e) => {
-                                            setNewMessage(e.target.value);
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                sendMessage();
-                                            }
-                                        }}
-                                        rows={1}
-                                        disabled={sending}
-                                    />
-                                    <Button variant="ghost" size="icon" type="button" className="text-gray-400 dark:text-[#707579] hover:text-gray-600 dark:hover:text-white h-10 w-10">
-                                        <Smile className="h-6 w-6" />
-                                    </Button>
+                                        </div>
+                                    ) : (
+                                        messages.map((msg) => {
+                                            const isMe = msg.sender_id === currentUser?.id;
+                                            return (
+                                                <div
+                                                    key={msg.id}
+                                                    className={cn(
+                                                        "relative max-w-full md:max-w-[90%] px-4 py-2 my-1 rounded-2xl shadow-sm text-[15px] leading-relaxed break-words",
+                                                        isMe ? "self-end rounded-tr-md" : "self-start rounded-tl-md"
+                                                    )}
+                                                    style={{
+                                                        backgroundColor: isMe ? theme.myMessageBg : theme.otherMessageBg,
+                                                        color: isMe ? theme.myMessageText : theme.otherMessageText,
+                                                    }}
+                                                >
+                                                    {renderMessageContent(msg, isMe)}
+                                                    <div className="float-right ml-3 mt-2 flex items-center gap-0.5 select-none opacity-70 h-full align-bottom translate-y-[2px]">
+                                                        <span className="text-[11px]">
+                                                            {formatTime(msg.created_at)}
+                                                        </span>
+                                                        {isMe && (
+                                                            <span>
+                                                                {msg.is_read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                    <div ref={messagesEndRef} className="h-0" />
                                 </div>
+                            </ScrollArea>
+                        </div>
 
-                                {newMessage.trim() ? (
-                                    <Button
-                                        type="submit"
-                                        className="h-10 w-10 rounded-full bg-blue-500 dark:bg-[#2b5278] hover:bg-blue-600 dark:hover:bg-[#326291] p-0 flex-shrink-0 flex items-center justify-center transition-all"
-                                        disabled={sending}
+                        {/* Input Area */}
+                        <div className="z-20 p-3 relative" style={{ backgroundColor: theme.inputBg, borderTop: `1px solid ${theme.inputBorder}` }}>
+                            {/* Emoji Picker Popup - Above input, full width */}
+                            {showEmojiPicker && (
+                                <div
+                                    ref={emojiPickerRef}
+                                    className="absolute rounded-2xl shadow-2xl"
+                                    style={{
+                                        backgroundColor: theme.inputBg,
+                                        border: `1px solid ${theme.inputBorder}`,
+                                        width: 'calc(100% - 24px)',
+                                        maxWidth: '800px',
+                                        height: '450px',
+                                        bottom: '100%',
+                                        left: '12px',
+                                        right: '12px',
+                                        marginBottom: '8px',
+                                        zIndex: 1000,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                    }}
+                                >
+                                    {/* Header */}
+                                    <div className="p-3 border-b flex items-center justify-between flex-shrink-0" style={{ borderColor: theme.inputBorder }}>
+                                        <div>
+                                            <h3 className="text-sm font-semibold" style={{ color: theme.text }}>Emojis & Stickers</h3>
+                                            <p className="text-xs mt-0.5" style={{ color: theme.subText }}>{emojis.length} эмодзи для ваших сообщений</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowEmojiPicker(false)}
+                                            className="text-lg opacity-60 hover:opacity-100 transition-opacity px-2"
+                                            style={{ color: theme.subText }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+
+                                    {/* Scrollable emoji grid */}
+                                    <div
+                                        className="flex-1 overflow-y-auto p-3"
+                                        style={{
+                                            overflowX: 'hidden',
+                                        }}
                                     >
-                                        <Send className="h-5 w-5 text-white ml-0.5" />
-                                    </Button>
-                                ) : (
-                                    <Button variant="ghost" size="icon" type="button" className="text-gray-400 dark:text-[#707579] hover:bg-gray-100 dark:hover:bg-white/5 h-10 w-10 flex-shrink-0">
-                                        {/* Placeholder for voice message icon if needed */}
-                                        <div className="w-5 h-5 rounded-full border-2 border-gray-400 dark:border-[#707579]" />
-                                    </Button>
-                                )}
-                            </form>
+                                        <div
+                                            className="grid gap-1"
+                                            style={{
+                                                gridTemplateColumns: 'repeat(auto-fill, minmax(40px, 1fr))',
+                                            }}
+                                        >
+                                            {emojis.map((emoji, index) => (
+                                                <button
+                                                    key={index}
+                                                    type="button"
+                                                    onClick={() => addEmoji(emoji)}
+                                                    className="text-2xl p-2 rounded-lg transition-all hover:scale-110 active:scale-95"
+                                                    style={{
+                                                        backgroundColor: 'transparent',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        minHeight: '40px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                                    }}
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="w-full relative">
+                                <form onSubmit={sendMessage} className="flex items-end gap-3 w-full">
+                                    {isRecording ? (
+                                        <div className="flex-1 flex items-center justify-between px-4 py-2 bg-red-500/10 rounded-2xl border border-red-500/20 h-[52px]">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                                                <span className="text-red-500 font-medium font-mono">{formatDuration(recordingDuration)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-10 w-10 text-red-500 hover:bg-red-500/10 rounded-full"
+                                                    onClick={cancelRecording}
+                                                >
+                                                    <Trash2 className="h-5 w-5" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    size="icon"
+                                                    className="h-10 w-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-md animate-pulse"
+                                                    onClick={stopAndSendRecording}
+                                                >
+                                                    <Send className="h-5 w-5 ml-0.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Button variant="ghost" size="icon" type="button" className="h-12 w-12 flex-shrink-0 rounded-full hover:bg-black/5 dark:hover:bg-white/5" style={{ color: theme.subText }}>
+                                                <Paperclip className="h-6 w-6" />
+                                            </Button>
+
+                                            <div className="flex-1 rounded-2xl flex items-center min-h-[48px] py-2 px-4 shadow-sm transition-all"
+                                                style={{ backgroundColor: isDarkMode ? '#17212b' : '#f4f4f5' }}>
+                                                <textarea
+                                                    placeholder="Message"
+                                                    className="bg-transparent border-0 w-full resize-none h-[24px] max-h-[160px] py-0 leading-6 focus:outline-none text-[16px]"
+                                                    style={{ color: theme.text }}
+                                                    value={newMessage}
+                                                    onChange={(e) => {
+                                                        setNewMessage(e.target.value);
+                                                        e.target.style.height = 'auto';
+                                                        e.target.style.height = e.target.scrollHeight + 'px';
+
+                                                        if (socket && selectedChat) {
+                                                            socket.emit('typing', { receiverId: selectedChat.other_user_id });
+
+                                                            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+
+                                                            typingTimeoutRef.current = setTimeout(() => {
+                                                                socket.emit('stop_typing', { receiverId: selectedChat.other_user_id });
+                                                            }, 2000);
+                                                        }
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                                            e.preventDefault();
+                                                            sendMessage();
+                                                        }
+                                                    }}
+                                                    rows={1}
+                                                    disabled={sending}
+                                                />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    type="button"
+                                                    className="h-10 w-10 ml-2"
+                                                    style={{ color: showEmojiPicker ? (isDarkMode ? '#3390ec' : '#2b5278') : theme.subText }}
+                                                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                                >
+                                                    <Smile className="h-6 w-6" />
+                                                </Button>
+                                            </div>
+
+                                            {newMessage.trim() ? (
+                                                <Button
+                                                    type="submit"
+                                                    className="h-12 w-12 rounded-full flex-shrink-0 flex items-center justify-center transition-all shadow-md hover:scale-105 active:scale-95"
+                                                    style={{ backgroundColor: isDarkMode ? '#2b5278' : '#3390ec', color: 'white' }}
+                                                    disabled={sending}
+                                                >
+                                                    <Send className="h-6 w-6 ml-0.5" />
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    type="button"
+                                                    className="h-12 w-12 rounded-full flex-shrink-0 flex items-center justify-center transition-all shadow-md hover:scale-105 active:scale-95"
+                                                    style={{ backgroundColor: isDarkMode ? '#2b5278' : '#3390ec', color: 'white' }}
+                                                    onClick={startRecording}
+                                                >
+                                                    <Mic className="h-6 w-6" />
+                                                </Button>
+                                            )}
+                                        </>
+                                    )}
+                                </form>
+                            </div>
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-4 bg-slate-50 dark:bg-[#0e1621]">
-                        <span className="bg-slate-200 dark:bg-[#17212b] px-4 py-1 rounded-full text-sm text-gray-500 dark:text-white/50 mb-4 select-none">
-                            Выберите чат, чтобы начать общение
-                        </span>
+                    <div className="flex-1 flex flex-col items-center justify-center p-4">
+                        <div className="rounded-full bg-black/40 p-4 mb-4" style={{ backgroundColor: isDarkMode ? '#242f3d' : '#e4e4e4' }}>
+                            <span className="text-[14px]" style={{ color: theme.subText }}>
+                                Select a chat to start messaging
+                            </span>
+                        </div>
                     </div>
                 )}
             </div>

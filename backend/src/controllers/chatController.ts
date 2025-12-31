@@ -143,3 +143,55 @@ export const markAsRead = async (req: AuthRequest, res: Response): Promise<void>
         res.status(500).json({ message: 'Failed to mark messages as read' });
     }
 };
+
+export const uploadVoiceMessage = async (req: AuthRequest, res: Response): Promise<void> => {
+    const senderId = req.user?.id;
+    const { receiverId } = req.body;
+    const file = (req as any).file;
+
+    if (!senderId) {
+        res.status(401).json({ message: 'User not authenticated' });
+        return;
+    }
+
+    if (!receiverId || !file) {
+        res.status(400).json({ message: 'Receiver and voice file are required' });
+        return;
+    }
+
+    if (file.size === 0) {
+        res.status(400).json({ message: 'Voice file is empty' });
+        return;
+    }
+
+    try {
+        const fileUrl = `/uploads/voice/${file.filename}`;
+
+        const result = await query(`
+            INSERT INTO messages (sender_id, receiver_id, content)
+            VALUES ($1, $2, $3)
+            RETURNING id, created_at
+        `, [senderId, receiverId, fileUrl]);
+
+        const newMessage = result.rows[0];
+
+        const messageData = {
+            id: newMessage.id,
+            sender_id: senderId,
+            receiver_id: receiverId,
+            content: fileUrl,
+            is_read: false,
+            created_at: newMessage.created_at
+        };
+
+        // Emit to receiver
+        socketManager.sendToUser(receiverId, 'new_message', messageData);
+        // Also emit to sender
+        socketManager.sendToUser(senderId, 'new_message', messageData);
+
+        res.status(201).json({ data: messageData });
+    } catch (err) {
+        console.error('Failed to send voice message:', err);
+        res.status(500).json({ message: 'Failed to send voice message' });
+    }
+};

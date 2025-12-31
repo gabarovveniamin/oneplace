@@ -260,108 +260,95 @@ export default function App() {
       )}
 
       {/* Основной контент */}
-      <main className="flex-1">
-        {currentView === 'home' && (
-          <>
-            <Hero />
-            <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-            <JobsList
-              jobs={filteredJobs}
-              loading={jobsLoading}
-              error={jobsError}
+      {currentView === 'messages' ? (
+        <MessagesPage isDarkMode={isDarkMode} />
+      ) : (
+        <main className="flex-1">
+          {currentView === 'home' && (
+            <>
+              <Hero />
+              <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+              <JobsList
+                jobs={filteredJobs}
+                loading={jobsLoading}
+                error={jobsError}
+                onJobClick={handleJobClick}
+              />
+            </>
+          )}
+
+          {currentView === 'job' && selectedJob && (
+            <JobDetails job={selectedJob} onBack={handleBackToHome} />
+          )}
+
+          {currentView === 'profile' && (
+            <Profile
+              userId={viewTargetUserId}
+              onChatOpen={setActiveChat}
+              onBack={() => {
+                handleBackToHome();
+                setViewTargetUserId(undefined);
+                window.location.hash = '';
+              }}
               onJobClick={handleJobClick}
+              onAdminClick={() => setCurrentView('admin')}
+              onCreateResume={() => setCurrentView('resume-builder')}
+              onShowResume={() => {
+                if (viewTargetUserId) {
+                  window.location.hash = `#resume/${viewTargetUserId}`;
+                } else {
+                  setCurrentView('resume-viewer');
+                }
+              }}
             />
-          </>
-        )}
+          )}
 
-        {currentView === 'job' && selectedJob && (
-          <JobDetails job={selectedJob} onBack={handleBackToHome} />
-        )}
+          {currentView === 'register' && (
+            <Registration
+              onBack={handleBackToHome}
+              onRegistrationComplete={(user) => handleRegistrationComplete('basic', user)} // Fallback
+              onResumeChoice={handleRegistrationComplete}
+              onSwitchToLogin={() => {
+                setCurrentView('home');
+                setAuthDialogView('login');
+                setIsAuthDialogOpen(true);
+              }}
+            />
+          )}
 
-        {currentView === 'profile' && (
-          <Profile
-            userId={viewTargetUserId}
-            onChatOpen={setActiveChat}
-            onBack={() => {
-              handleBackToHome();
-              setViewTargetUserId(undefined);
-              window.location.hash = '';
-            }}
-            onJobClick={handleJobClick}
-            onAdminClick={() => setCurrentView('admin')}
-            onCreateResume={() => setCurrentView('resume-builder')}
-            onShowResume={() => {
-              if (viewTargetUserId) {
-                window.location.hash = `#resume/${viewTargetUserId}`;
-              } else {
-                setCurrentView('resume-viewer');
-              }
-            }}
-          />
-        )}
+          {currentView === 'resume-builder' && (
+            <ExtendedResumeBuilder
+              onBack={() => setCurrentView('profile')}
+              onComplete={() => setCurrentView('resume-viewer')}
+            />
+          )}
 
-        {currentView === 'register' && (
-          <Registration
-            onBack={handleBackToHome}
-            onRegistrationComplete={(user) => handleRegistrationComplete('basic', user)} // Fallback
-            onResumeChoice={handleRegistrationComplete}
-            onSwitchToLogin={() => {
-              setCurrentView('home');
-              setAuthDialogView('login');
-              setIsAuthDialogOpen(true);
-            }}
-          />
-        )}
+          {currentView === 'resume-viewer' && (
+            <ResumeViewer
+              onBack={() => {
+                if (viewTargetUserId) {
+                  // Return to the public profile view
+                  window.location.hash = `#resume/${viewTargetUserId}`;
+                } else {
+                  setCurrentView('resume-viewer');
+                }
+              }}
+              onEdit={() => setCurrentView('resume-builder')}
+              userId={viewTargetUserId}
+              readOnly={!!viewTargetUserId}
+            />
+          )}
+          {currentView === 'post-job' && (
+            <PostJob onBack={handleBackToHome} />
+          )}
 
-        {currentView === 'resume-builder' && (
-          <ExtendedResumeBuilder
-            onBack={() => setCurrentView('profile')}
-            onComplete={() => setCurrentView('resume-viewer')}
-          />
-        )}
-
-        {currentView === 'resume-viewer' && (
-          <ResumeViewer
-            onBack={() => {
-              if (viewTargetUserId) {
-                // Return to the public profile view
-                window.location.hash = `#profile/${viewTargetUserId}`;
-              } else {
-                setCurrentView('profile');
-              }
-            }}
-            onEdit={() => setCurrentView('resume-builder')}
-            userId={viewTargetUserId}
-            readOnly={!!viewTargetUserId}
-          />
-        )}
-        {currentView === 'post-job' && (
-          <PostJob onBack={handleBackToHome} />
-        )}
-
-        {currentView === 'admin' && (
-          <AdminDashboard onBack={handleBackToHome} />
-        )}
-
-        {currentView === 'messages' && (
-          <MessagesPage />
-        )}
-      </main>
-
-      {/* Quick Access - Messenger */}
-      {currentUser && (
-        <div className="fixed bottom-6 right-6 z-40">
-          <div
-            className="bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-full shadow-xl transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
-            onClick={() => {
-              window.location.hash = '#messages';
-              setCurrentView('messages');
-            }}
-          >
-            <MessageSquare className="h-6 w-6" />
-          </div>
-        </div>
+          {currentView === 'admin' && (
+            <AdminDashboard onBack={handleBackToHome} />
+          )}
+        </main>
       )}
+
+
 
       {/* Footer на всех страницах, кроме мессенджера */}
       {currentView !== 'messages' && <Footer />}

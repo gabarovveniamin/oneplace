@@ -12,7 +12,7 @@ export function ThemeToggle({ isDark, onToggle }: ThemeToggleProps) {
       variant="ghost"
       size="sm"
       onClick={onToggle}
-      className="w-10 h-10 p-0 rounded-full transition-all duration-300 hover:scale-110 hover:bg-accent/50"
+      className="w-10 h-10 p-0 rounded-full transition-all duration-300 hover:scale-110 hover-adaptive"
       aria-label="Переключить тему"
     >
       {isDark ? (

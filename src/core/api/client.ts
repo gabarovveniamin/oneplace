@@ -19,12 +19,16 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`;
 
     const config: RequestInit = {
+      ...options,
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
       },
-      ...options,
     };
+
+    if (options.body instanceof FormData) {
+      delete (config.headers as any)['Content-Type'];
+    }
 
     // Добавляем токен авторизации если есть
     const token = localStorage.getItem('authToken');
@@ -89,10 +93,13 @@ class ApiClient {
     });
   }
 
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+    const isFormData = data instanceof FormData;
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: isFormData ? data : (data ? JSON.stringify(data) : undefined),
+      headers: isFormData ? {} : undefined, // Let browser set Content-Type for FormData, or default to JSON
+      ...options
     });
   }
 

@@ -39,5 +39,13 @@ export const chatApiService = {
 
     markAsRead: async (otherUserId: string): Promise<void> => {
         await apiClient.post(`/chat/${otherUserId}/read`);
+    },
+
+    sendVoiceMessage: async (receiverId: string, voiceBlob: Blob): Promise<ChatMessage> => {
+        const formData = new FormData();
+        formData.append('receiverId', receiverId);
+        formData.append('voice', voiceBlob, 'voice-message.webm');
+        const response = await apiClient.post('/chat/voice', formData);
+        return response.data as ChatMessage;
     }
 };

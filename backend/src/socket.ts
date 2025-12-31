@@ -45,11 +45,27 @@ class SocketManager {
                 const existing = this.userSockets.get(userId) || [];
                 this.userSockets.set(userId, [...existing, socket.id]);
 
+                // Notify others that user is online
+                this.broadcast('user_status_change', { userId, status: 'online' });
+
+                // Send list of online users to the connecting user
+                socket.emit('online_users', Array.from(this.userSockets.keys()));
+
+                // Handle typing events
+                socket.on('typing', (data: { receiverId: string }) => {
+                    this.sendToUser(data.receiverId, 'user_typing', { userId });
+                });
+
+                socket.on('stop_typing', (data: { receiverId: string }) => {
+                    this.sendToUser(data.receiverId, 'user_stop_typing', { userId });
+                });
+
                 socket.on('disconnect', () => {
                     console.log(`🔌 User disconnected: ${userId} (${socket.id})`);
                     const updated = this.userSockets.get(userId)?.filter(id => id !== socket.id) || [];
                     if (updated.length === 0) {
                         this.userSockets.delete(userId);
+                        this.broadcast('user_status_change', { userId, status: 'offline' });
                     } else {
                         this.userSockets.set(userId, updated);
                     }

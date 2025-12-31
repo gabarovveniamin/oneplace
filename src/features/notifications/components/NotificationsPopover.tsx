@@ -119,10 +119,10 @@ export function NotificationsPopover({ onNavigateToProfile }: NotificationsPopov
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
             <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative hover:bg-white/10">
-                    <Bell className="h-5 w-5 text-muted-foreground" />
+                <Button variant="ghost" size="icon" className="relative hover-adaptive rounded-lg transition-colors">
+                    <Bell className="h-5 w-5 icon-adaptive" />
                     {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 border-2 border-[#0f172a]">
+                        <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 border-2 badge-border-adaptive">
                             {unreadCount}
                         </span>
                     )}

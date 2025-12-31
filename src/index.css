@@ -3199,3 +3199,96 @@ html {
 .shadow-blue-500\/30 {
   --tw-shadow-color: rgba(59, 130, 246, 0.3);
 }
+
+/* Adaptive Header Styles - Manually added to bypass missing build process */
+.header-adaptive {
+  background-color: white;
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.dark .header-adaptive {
+  background-color: #0f172a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.search-input-adaptive {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  transition: all 0.2s;
+}
+
+.search-input-adaptive:focus {
+  background-color: white;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.dark .search-input-adaptive {
+  background-color: rgba(30, 41, 59, 0.5);
+  color: #f1f5f9;
+}
+
+.dark .search-input-adaptive:focus {
+  background-color: #1e293b;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.search-input-adaptive::placeholder {
+  color: #64748b;
+}
+
+.dark .search-input-adaptive::placeholder {
+  color: #94a3b8;
+}
+
+.icon-adaptive {
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.dark .icon-adaptive {
+  color: #94a3b8;
+}
+
+.text-adaptive {
+  color: #334155;
+  transition: color 0.2s;
+}
+
+.dark .text-adaptive {
+  color: #e2e8f0;
+}
+
+.hover-adaptive {
+  transition: all 0.2s;
+}
+
+.hover-adaptive:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+
+.dark .hover-adaptive:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.vertical-divider-adaptive {
+  background-color: #e2e8f0;
+}
+
+.badge-border-adaptive {
+  border-color: white;
+}
+
+.dark .vertical-divider-adaptive {
+  background-color: #1e293b;
+}
+
+.badge-border-adaptive {
+  border-color: white;
+}
+
+.dark .badge-border-adaptive {
+  border-color: #0f172a;
+}
