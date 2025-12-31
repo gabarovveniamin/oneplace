@@ -26,6 +26,7 @@ interface HeaderProps {
   onAdminClick?: () => void;
   onLogout?: () => void;
   currentUser?: UserResponse | null;
+  showSearch?: boolean;
 }
 
 export function Header({
@@ -43,7 +44,8 @@ export function Header({
   onMessagesClick,
   onAdminClick,
   onLogout,
-  currentUser
+  currentUser,
+  showSearch = true
 }: HeaderProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
@@ -107,45 +109,49 @@ export function Header({
             </div>
 
             {/* Search Bar & Filter */}
-            <div className="flex-1 min-w-[150px] max-w-2xl mx-2 sm:mx-6">
-              <div className="flex items-center space-x-2">
-                <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 icon-adaptive h-4 w-4" />
-                  <Input
-                    type="text"
-                    placeholder="Поиск..."
-                    className="pl-10 pr-10 search-input-adaptive border-0 rounded-lg text-sm h-10 w-full"
-                    value={searchValue}
-                    onChange={handleSearchInputChange}
-                  />
-                  {searchValue && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onSearchValueChange?.('')}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover-adaptive rounded-full flex items-center justify-center icon-adaptive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </form>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={toggleAdvancedSearch}
-                  className="h-10 w-10 p-0 hover-adaptive rounded-lg relative flex-shrink-0 hidden md:flex items-center justify-center"
-                >
-                  <Filter className="h-5 w-5 icon-adaptive" />
-                  {activeFiltersCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
-                      {activeFiltersCount}
-                    </span>
-                  )}
-                </Button>
+            {showSearch ? (
+              <div className="flex-1 min-w-[150px] max-w-2xl mx-2 sm:mx-6">
+                <div className="flex items-center space-x-2">
+                  <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-0">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 icon-adaptive h-4 w-4" />
+                    <Input
+                      type="text"
+                      placeholder="Поиск..."
+                      className="pl-10 pr-10 search-input-adaptive border-0 rounded-lg text-sm h-10 w-full"
+                      value={searchValue}
+                      onChange={handleSearchInputChange}
+                    />
+                    {searchValue && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onSearchValueChange?.('')}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover-adaptive rounded-full flex items-center justify-center icon-adaptive"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </form>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleAdvancedSearch}
+                    className="h-10 w-10 p-0 hover-adaptive rounded-lg relative flex-shrink-0 hidden md:flex items-center justify-center"
+                  >
+                    <Filter className="h-5 w-5 icon-adaptive" />
+                    {activeFiltersCount > 0 && (
+                      <span className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                        {activeFiltersCount}
+                      </span>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex-1" />
+            )}
 
             {/* Right Side Navigation */}
             <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0">

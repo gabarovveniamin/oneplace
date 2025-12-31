@@ -12,13 +12,14 @@ import { ChatWindow } from './features/chat/components/ChatWindow';
 import { MessengerPopover } from './features/chat/components/MessengerPopover';
 import { MessagesPage } from './features/messages/components/MessagesPage';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
+import { ServiceHub } from './features/hub/components/ServiceHub';
 import { Job, SearchFilters } from './shared/types/job';
 import { Chat } from './core/api/chat';
 import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages'>('home');
+  const [currentView, setCurrentView] = useState<'hub' | 'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages'>('hub');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -126,7 +127,7 @@ export default function App() {
       }
     } else {
       console.error('No user found after registration, redirecting to home');
-      setCurrentView('home');
+      setCurrentView('hub');
     }
   };
 
@@ -161,7 +162,7 @@ export default function App() {
   };
 
   const handleLogoClick = () => {
-    setCurrentView('home');
+    setCurrentView('hub');
     setSelectedJob(null);
     // Очищаем хеш в URL
     window.location.hash = '';
@@ -170,7 +171,7 @@ export default function App() {
   const handleLogout = () => {
     authApiService.logout();
     setCurrentUser(null);
-    setCurrentView('home');
+    setCurrentView('hub');
     setIsAuthDialogOpen(false);
     window.location.hash = '';
   };
@@ -247,6 +248,7 @@ export default function App() {
         onAdminClick={() => setCurrentView('admin')}
         onLogout={handleLogout}
         currentUser={currentUser}
+        showSearch={currentView === 'home'}
       />
 
       {/* Chat Window - Global */}
@@ -264,6 +266,12 @@ export default function App() {
         <MessagesPage isDarkMode={isDarkMode} />
       ) : (
         <main className="flex-1">
+          {currentView === 'hub' && (
+            <ServiceHub onSelectService={(service) => {
+              if (service === 'jobs') setCurrentView('home');
+            }} />
+          )}
+
           {currentView === 'home' && (
             <>
               <Hero />
