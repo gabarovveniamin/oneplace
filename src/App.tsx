@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Header, Hero, Footer } from './shared/ui/components';
-import { MessageSquare } from 'lucide-react';
+import { PageWrapper } from './shared/ui/components/PageWrapper';
 import {
   FilterTabs,
   JobsList,
@@ -9,26 +10,49 @@ import {
 import { Profile, PostJob, ResumeViewer } from './features/profile/components';
 import { Registration, ExtendedResumeBuilder, AuthDialog } from './features/auth/components';
 import { ChatWindow } from './features/chat/components/ChatWindow';
-import { MessengerPopover } from './features/chat/components/MessengerPopover';
 import { MessagesPage } from './features/messages/components/MessagesPage';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { ServiceHub } from './features/hub/components/ServiceHub';
 import { MarketPage } from './features/market/components/MarketPage';
 import { PostMarketItem } from './features/market/components/PostMarketItem';
+import { MarketItemDetails } from './features/market/components/MarketItemDetails';
+import { CartPage } from './features/market/components/CartPage';
+import { MarketListing, marketApiService } from './core/api/market';
 import { Job, SearchFilters } from './shared/types/job';
 import { Chat } from './core/api/chat';
 import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
+import { Toaster, toast } from 'sonner';
+
+// Custom Hooks for refactoring
+import { useTheme } from './shared/hooks/useTheme';
+import { useAuth } from './shared/hooks/useAuth';
+import { useViewManager } from './shared/hooks/useViewManager';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'hub' | 'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages' | 'market' | 'market-post'>('hub');
+  const { isDarkMode, toggleTheme } = useTheme();
+  const {
+    currentUser,
+    setCurrentUser,
+    isAuthDialogOpen,
+    setIsAuthDialogOpen,
+    authDialogView,
+    setAuthDialogView,
+    logout,
+    openLogin,
+    openRegister
+  } = useAuth();
+  const {
+    currentView,
+    setCurrentView,
+    viewTargetUserId,
+    setViewTargetUserId,
+    navigateTo
+  } = useViewManager();
+
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [selectedMarketItem, setSelectedMarketItem] = useState<MarketListing | null>(null);
   const [searchValue, setSearchValue] = useState('');
-  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-  const [authDialogView, setAuthDialogView] = useState<'login' | 'register'>('login');
-  const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
-  const [viewTargetUserId, setViewTargetUserId] = useState<string | undefined>(undefined);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
 
   const {
@@ -42,54 +66,11 @@ export default function App() {
     handleClearAdvancedSearch
   } = useJobs();
 
-  useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash;
-      if (hash === '#register') {
-        setCurrentView('register');
-      } else if (hash === '#post-job') {
-        const user = authApiService.getCurrentUser();
-        if (user && (user.role === 'employer' || user.role === 'admin')) {
-          setCurrentView('post-job');
-        } else {
-          window.location.hash = '';
-          setCurrentView('home');
-        }
-      } else if (hash === '#messages') {
-        const user = authApiService.getCurrentUser();
-        if (user) {
-          setCurrentView('messages');
-        } else {
-          window.location.hash = '';
-          setCurrentView('home');
-        }
-      } else if (hash.startsWith('#resume/')) {
-        const userId = hash.split('/')[1];
-        if (userId) {
-          setViewTargetUserId(userId);
-          setCurrentView('resume-viewer');
-        }
-      } else if (hash.startsWith('#profile/')) {
-        const userId = hash.split('/')[1];
-        if (userId) {
-          setViewTargetUserId(userId);
-          setCurrentView('profile');
-        }
-      }
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    handleHashChange();
-
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-
   const activeFiltersCount = Object.values(searchFilters).filter(value =>
     value !== undefined && value !== '' && value !== null
   ).length;
 
-
+  // Handlers
   const handleJobClick = (job: Job) => {
     setSelectedJob(job);
     setCurrentView('job');
@@ -106,48 +87,23 @@ export default function App() {
     setCurrentView('profile');
   };
 
-  const handleRegistrationClick = () => {
-    setCurrentView('register');
-  };
-
   const handleRegistrationComplete = (choice: 'basic' | 'extended', explicitUser?: UserResponse) => {
-    // Используем переданного пользователя или получаем из хранилища
     const user = explicitUser || authApiService.getCurrentUser();
-
     if (user) {
       setCurrentUser(user);
       if (user.role === 'employer') {
         setCurrentView('profile');
       } else {
-        if (choice === 'basic') {
-          // Если выбрано "Позже" (обычное) - сразу в профиль
-          setCurrentView('profile');
-        } else {
-          // Если "Настроить" (расширенное) - в конструктор
-          setCurrentView('resume-builder');
-        }
+        setCurrentView(choice === 'basic' ? 'profile' : 'resume-builder');
       }
     } else {
-      console.error('No user found after registration, redirecting to home');
       setCurrentView('hub');
     }
   };
 
-  const handleResumeComplete = () => {
-    setCurrentView('profile');
-  };
-
-  const toggleTheme = () => {
-    setIsDarkMode(prev => !prev);
-  };
-
-  // Обработчики поиска
   const handleHeaderSearch = (filters: SearchFilters) => {
     handleAdvancedSearch(filters);
-    // Если есть ключевое слово, обновляем значение в поле поиска
-    if (filters.keyword) {
-      setSearchValue(filters.keyword);
-    }
+    if (filters.keyword) setSearchValue(filters.keyword);
   };
 
   const handleHeaderClearSearch = () => {
@@ -155,106 +111,32 @@ export default function App() {
     setSearchValue('');
   };
 
-  const handleSearchValueChange = (value: string) => {
-    setSearchValue(value);
-    // Если поле очищено, сбрасываем поиск
-    if (!value.trim()) {
-      handleClearAdvancedSearch();
-    }
-  };
-
-  const handleLogoClick = () => {
-    setCurrentView('hub');
-    setSelectedJob(null);
-    // Очищаем хеш в URL
-    window.location.hash = '';
-  };
-
-  const handleLogout = () => {
-    authApiService.logout();
-    setCurrentUser(null);
-    setCurrentView('hub');
-    setIsAuthDialogOpen(false);
-    window.location.hash = '';
-  };
-
-  // Синхронизируем поисковое поле с фильтрами при загрузке
-  useEffect(() => {
-    if (searchFilters.keyword && searchFilters.keyword !== searchValue) {
-      setSearchValue(searchFilters.keyword);
-    } else if (!searchFilters.keyword && searchValue) {
-      setSearchValue('');
-    }
-  }, [searchFilters.keyword]);
-
-  // Load current user from localStorage
-  useEffect(() => {
-    const user = authApiService.getCurrentUser();
-    if (user) {
-      setCurrentUser(user);
-    }
-  }, []);
-
-  // Handle theme persistence and application
-  useEffect(() => {
-    // Load saved theme preference
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true);
-    } else if (savedTheme === 'light') {
-      setIsDarkMode(false);
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkMode(prefersDark);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Apply theme to document
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDarkMode]);
-
-
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header на всех страницах */}
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       <Header
         isDarkMode={isDarkMode}
         onThemeToggle={toggleTheme}
         onSearch={handleHeaderSearch}
         onClearSearch={handleHeaderClearSearch}
         searchValue={searchValue}
-        onSearchValueChange={handleSearchValueChange}
+        onSearchValueChange={setSearchValue}
         activeFiltersCount={activeFiltersCount}
-        onLogoClick={handleLogoClick}
-        onLoginClick={() => {
-          setAuthDialogView('login');
-          setIsAuthDialogOpen(true);
-        }}
-        onRegisterClick={() => {
-          setAuthDialogView('register');
-          setIsAuthDialogOpen(true);
-        }}
+        onLogoClick={() => navigateTo('hub')}
+        onLoginClick={openLogin}
+        onRegisterClick={openRegister}
         onProfileClick={handleProfileClick}
         onMessagesClick={() => {
           window.location.hash = '#messages';
           setCurrentView('messages');
         }}
         onMarketClick={() => setCurrentView('market')}
+        onCartClick={() => setCurrentView('market-cart')}
         onAdminClick={() => setCurrentView('admin')}
-        onLogout={handleLogout}
+        onLogout={logout}
         currentUser={currentUser}
         showSearch={currentView === 'home'}
       />
 
-      {/* Chat Window - Global */}
       {activeChat && (
         <ChatWindow
           userId={activeChat.other_user_id}
@@ -264,34 +146,80 @@ export default function App() {
         />
       )}
 
-      {/* Основной контент */}
-      {currentView === 'messages' ? (
-        <MessagesPage isDarkMode={isDarkMode} />
-      ) : (
-        <main className="flex-1">
+      <main className="flex-1 flex flex-col">
+        <AnimatePresence mode="wait">
           {currentView === 'hub' && (
-            <ServiceHub onSelectService={(service) => {
-              if (service === 'jobs') setCurrentView('home');
-              if (service === 'market') setCurrentView('market');
-            }} />
+            <PageWrapper key="hub">
+              <ServiceHub onSelectService={(service) => {
+                if (service === 'jobs') setCurrentView('home');
+                if (service === 'market') setCurrentView('market');
+              }} />
+            </PageWrapper>
           )}
 
           {currentView === 'market' && (
-            <MarketPage
-              onBack={() => setCurrentView('hub')}
-              onPostClick={() => setCurrentView('market-post')}
-            />
+            <PageWrapper key="market">
+              <MarketPage
+                onBack={() => setCurrentView('hub')}
+                onPostClick={() => setCurrentView('market-post')}
+                onItemClick={(item) => {
+                  setSelectedMarketItem(item);
+                  setCurrentView('market-item');
+                }}
+              />
+            </PageWrapper>
+          )}
+
+          {currentView === 'market-item' && selectedMarketItem && (
+            <PageWrapper key="market-item">
+              <MarketItemDetails
+                item={selectedMarketItem}
+                onBack={() => setCurrentView('market')}
+                onChatOpen={(user) => {
+                  setActiveChat({
+                    id: '',
+                    other_user_id: user.other_user_id,
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    avatar: user.avatar,
+                    content: '',
+                    created_at: new Date().toISOString(),
+                    is_read: true
+                  } as any);
+                }}
+              />
+            </PageWrapper>
           )}
 
           {currentView === 'market-post' && (
-            <PostMarketItem
-              onBack={() => setCurrentView('market')}
-              onComplete={() => setCurrentView('market')}
-            />
+            <PageWrapper key="market-post">
+              <PostMarketItem
+                onBack={() => setCurrentView('market')}
+                onComplete={() => setCurrentView('market')}
+              />
+            </PageWrapper>
+          )}
+
+          {currentView === 'market-cart' && (
+            <PageWrapper key="market-cart">
+              <CartPage
+                onBack={() => setCurrentView('market')}
+                onCheckout={() => toast.info('Оформление заказа в разработке')}
+                onItemClick={async (id: string) => {
+                  try {
+                    const item = await marketApiService.getListingById(id);
+                    setSelectedMarketItem(item);
+                    setCurrentView('market-item');
+                  } catch (e) {
+                    toast.error('Не удалось загрузить товар');
+                  }
+                }}
+              />
+            </PageWrapper>
           )}
 
           {currentView === 'home' && (
-            <>
+            <PageWrapper key="home">
               <Hero />
               <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
               <JobsList
@@ -300,87 +228,99 @@ export default function App() {
                 error={jobsError}
                 onJobClick={handleJobClick}
               />
-            </>
+            </PageWrapper>
           )}
 
           {currentView === 'job' && selectedJob && (
-            <JobDetails job={selectedJob} onBack={handleBackToHome} />
+            <PageWrapper key="job">
+              <JobDetails job={selectedJob} onBack={handleBackToHome} />
+            </PageWrapper>
           )}
 
           {currentView === 'profile' && (
-            <Profile
-              userId={viewTargetUserId}
-              onChatOpen={setActiveChat}
-              onPostMarketItem={() => setCurrentView('market-post')}
-              onBack={() => {
-                handleBackToHome();
-                setViewTargetUserId(undefined);
-                window.location.hash = '';
-              }}
-              onJobClick={handleJobClick}
-              onAdminClick={() => setCurrentView('admin')}
-              onCreateResume={() => setCurrentView('resume-builder')}
-              onShowResume={() => {
-                if (viewTargetUserId) {
-                  window.location.hash = `#resume/${viewTargetUserId}`;
-                } else {
-                  setCurrentView('resume-viewer');
-                }
-              }}
-            />
+            <PageWrapper key="profile">
+              <Profile
+                userId={viewTargetUserId}
+                onChatOpen={setActiveChat}
+                onPostMarketItem={() => setCurrentView('market-post')}
+                onBack={() => {
+                  handleBackToHome();
+                  setViewTargetUserId(undefined);
+                  window.location.hash = '';
+                }}
+                onJobClick={handleJobClick}
+                onAdminClick={() => setCurrentView('admin')}
+                onCreateResume={() => setCurrentView('resume-builder')}
+                onShowResume={() => {
+                  if (viewTargetUserId) {
+                    window.location.hash = `#resume/${viewTargetUserId}`;
+                  } else {
+                    setCurrentView('resume-viewer');
+                  }
+                }}
+              />
+            </PageWrapper>
+          )}
+
+          {currentView === 'messages' && (
+            <PageWrapper key="messages">
+              <MessagesPage isDarkMode={isDarkMode} />
+            </PageWrapper>
           )}
 
           {currentView === 'register' && (
-            <Registration
-              onBack={handleBackToHome}
-              onRegistrationComplete={(user) => handleRegistrationComplete('basic', user)} // Fallback
-              onResumeChoice={handleRegistrationComplete}
-              onSwitchToLogin={() => {
-                setCurrentView('home');
-                setAuthDialogView('login');
-                setIsAuthDialogOpen(true);
-              }}
-            />
+            <PageWrapper key="register">
+              <Registration
+                onBack={handleBackToHome}
+                onRegistrationComplete={(user) => handleRegistrationComplete('basic', user)}
+                onResumeChoice={handleRegistrationComplete}
+                onSwitchToLogin={openLogin}
+              />
+            </PageWrapper>
           )}
 
           {currentView === 'resume-builder' && (
-            <ExtendedResumeBuilder
-              onBack={() => setCurrentView('profile')}
-              onComplete={() => setCurrentView('resume-viewer')}
-            />
+            <PageWrapper key="resume-builder">
+              <ExtendedResumeBuilder
+                onBack={() => setCurrentView('profile')}
+                onComplete={() => setCurrentView('resume-viewer')}
+              />
+            </PageWrapper>
           )}
 
           {currentView === 'resume-viewer' && (
-            <ResumeViewer
-              onBack={() => {
-                if (viewTargetUserId) {
-                  // Return to the public profile view
-                  window.location.hash = `#resume/${viewTargetUserId}`;
-                } else {
-                  setCurrentView('resume-viewer');
-                }
-              }}
-              onEdit={() => setCurrentView('resume-builder')}
-              userId={viewTargetUserId}
-              readOnly={!!viewTargetUserId}
-            />
+            <PageWrapper key="resume-viewer">
+              <ResumeViewer
+                onBack={() => {
+                  if (viewTargetUserId) {
+                    window.location.hash = `#profile/${viewTargetUserId}`;
+                  } else {
+                    setCurrentView('profile');
+                  }
+                }}
+                onEdit={() => setCurrentView('resume-builder')}
+                userId={viewTargetUserId}
+                readOnly={!!viewTargetUserId}
+              />
+            </PageWrapper>
           )}
+
           {currentView === 'post-job' && (
-            <PostJob onBack={handleBackToHome} />
+            <PageWrapper key="post-job">
+              <PostJob onBack={handleBackToHome} />
+            </PageWrapper>
           )}
 
           {currentView === 'admin' && (
-            <AdminDashboard onBack={handleBackToHome} />
+            <PageWrapper key="admin">
+              <AdminDashboard onBack={handleBackToHome} />
+            </PageWrapper>
           )}
-        </main>
-      )}
+        </AnimatePresence>
+      </main>
 
-
-
-      {/* Footer на всех страницах, кроме мессенджера */}
       {currentView !== 'messages' && <Footer />}
 
-      {/* Auth Dialog */}
       <AuthDialog
         isOpen={isAuthDialogOpen}
         onClose={() => setIsAuthDialogOpen(false)}
@@ -388,14 +328,13 @@ export default function App() {
         onResumeChoice={(choice) => {
           setIsAuthDialogOpen(false);
           const user = authApiService.getCurrentUser();
-          setCurrentUser(user);
-          if (choice === 'extended') {
-            setCurrentView('resume-builder');
-          } else {
-            setCurrentView('profile'); // Or stay on home? User asked for "like in profile"
+          if (user) {
+            setCurrentUser(user);
+            setCurrentView(choice === 'extended' ? 'resume-builder' : 'profile');
           }
         }}
       />
+      <Toaster position="top-center" richColors />
     </div>
   );
 }

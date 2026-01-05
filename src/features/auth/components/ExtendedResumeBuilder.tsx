@@ -242,7 +242,7 @@ export function ExtendedResumeBuilder({ onBack, onComplete }: ExtendedResumeBuil
                     id="salary"
                     value={resumeData.salary}
                     onChange={(e) => handleInputChange('salary', e.target.value)}
-                    placeholder="150 000 ₽"
+                    placeholder="150 000 ₸"
                   />
                 </div>
               </div>

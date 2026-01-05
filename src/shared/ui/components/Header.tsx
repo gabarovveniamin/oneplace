@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "./button";
 import { Input } from "./input";
-import { Search, User, Filter, X, ChevronDown, LogOut, MessageSquare, MapPin, Bell } from "lucide-react";
+import { Search, User, Filter, X, ChevronDown, LogOut, MessageSquare, MapPin, Bell, ShoppingCart } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchFilters } from "../../../shared/types/job";
 import { UserResponse } from "../../../core/api/auth";
@@ -9,6 +9,7 @@ import { Card, CardContent } from "./card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 import { NotificationsPopover } from '../../../features/notifications/components/NotificationsPopover';
 import { MessengerModal } from '../../../features/chat/components/MessengerModal';
+import { useCart } from '../../../features/market/hooks/useCart';
 
 interface HeaderProps {
   isDarkMode: boolean;
@@ -24,6 +25,7 @@ interface HeaderProps {
   onProfileClick?: () => void;
   onMessagesClick?: () => void;
   onMarketClick?: () => void;
+  onCartClick?: () => void;
   onAdminClick?: () => void;
   onLogout?: () => void;
   currentUser?: UserResponse | null;
@@ -44,6 +46,7 @@ export function Header({
   onProfileClick,
   onMessagesClick,
   onMarketClick,
+  onCartClick,
   onAdminClick,
   onLogout,
   currentUser,
@@ -52,6 +55,7 @@ export function Header({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState<SearchFilters>({});
   const filterRef = useRef<HTMLDivElement>(null);
+  const { totalItems } = useCart();
 
   const toggleAdvancedSearch = () => {
     setIsFilterOpen(prev => !prev);
@@ -180,6 +184,19 @@ export function Header({
                       onClick={onMessagesClick}
                     >
                       <MessageSquare className="h-5 w-5 icon-adaptive" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative hover-adaptive rounded-lg flex-shrink-0"
+                      onClick={onCartClick}
+                    >
+                      <ShoppingCart className="h-5 w-5 icon-adaptive" />
+                      {totalItems > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                          {totalItems}
+                        </span>
+                      )}
                     </Button>
                   </div>
 

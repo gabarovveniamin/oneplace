@@ -16,6 +16,10 @@ interface JobsListProps {
 
 import { useFavorites } from "../hooks/useFavorites";
 
+import { JobCardSkeleton } from "./JobCardSkeleton";
+
+import { motion } from "framer-motion";
+
 export function JobsList({ jobs = [], loading = false, error = null, onJobClick }: JobsListProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
 
@@ -27,7 +31,7 @@ export function JobsList({ jobs = [], loading = false, error = null, onJobClick 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <div className="flex items-center space-x-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
             <h2 className="text-2xl font-bold text-foreground">
               Загрузка вакансий...
             </h2>
@@ -36,23 +40,7 @@ export function JobsList({ jobs = [], loading = false, error = null, onJobClick 
 
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="border border-border rounded-lg p-6">
-              <div className="flex items-start space-x-4 mb-4">
-                <Skeleton className="h-14 w-14 rounded-xl" />
-                <div className="flex-1">
-                  <Skeleton className="h-6 w-3/4 mb-2" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              </div>
-              <Skeleton className="h-16 w-full mb-4" />
-              <div className="flex justify-between items-center">
-                <div className="flex space-x-2">
-                  <Skeleton className="h-6 w-20" />
-                  <Skeleton className="h-6 w-16" />
-                </div>
-                <Skeleton className="h-8 w-24" />
-              </div>
-            </div>
+            <JobCardSkeleton key={index} />
           ))}
         </div>
       </div>
@@ -103,17 +91,37 @@ export function JobsList({ jobs = [], loading = false, error = null, onJobClick 
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-1">
+        <motion.div
+          initial="hidden"
+          animate="show"
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
+          className="grid gap-6 md:grid-cols-1 lg:grid-cols-1"
+        >
           {validJobs.map((job) => (
-            <JobCard
+            <motion.div
               key={job.id}
-              job={job}
-              onJobClick={onJobClick}
-              isFavorite={isFavorite(job.id)}
-              onToggleFavorite={toggleFavorite}
-            />
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                show: { opacity: 1, y: 0 }
+              }}
+            >
+              <JobCard
+                job={job}
+                onJobClick={onJobClick}
+                isFavorite={isFavorite(job.id)}
+                onToggleFavorite={toggleFavorite}
+              />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );

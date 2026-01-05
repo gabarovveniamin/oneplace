@@ -223,7 +223,7 @@ export function PostJob({ onBack }: PostJobProps) {
                 <Label htmlFor="salary">Зарплата *</Label>
                 <Input
                   id="salary"
-                  placeholder="150 000 - 200 000 ₽ / 3 000 ₽/день"
+                  placeholder="150 000 - 200 000 ₸ / 3 000 ₸/день"
                   value={jobData.salary}
                   onChange={(e) => handleInputChange('salary', e.target.value)}
                   required
@@ -235,7 +235,7 @@ export function PostJob({ onBack }: PostJobProps) {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="salaryFrom">Зарплата от (₽)</Label>
+                  <Label htmlFor="salaryFrom">Зарплата от (₸)</Label>
                   <Input
                     id="salaryFrom"
                     type="number"
@@ -245,7 +245,7 @@ export function PostJob({ onBack }: PostJobProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="salaryTo">Зарплата до (₽)</Label>
+                  <Label htmlFor="salaryTo">Зарплата до (₸)</Label>
                   <Input
                     id="salaryTo"
                     type="number"

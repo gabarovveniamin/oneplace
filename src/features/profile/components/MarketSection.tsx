@@ -109,7 +109,7 @@ export function MarketSection({ userId, isOwnProfile, onPostClick }: MarketSecti
                                         <div className="flex justify-between items-start">
                                             <h3 className="font-bold text-foreground line-clamp-1">{listing.title}</h3>
                                             <div className="text-lg font-black text-purple-600">
-                                                {listing.price.toLocaleString()} ₽
+                                                {listing.price.toLocaleString()} ₸
                                             </div>
                                         </div>
                                         <p className="text-xs text-muted-foreground line-clamp-2 mt-1">

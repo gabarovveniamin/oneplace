@@ -114,8 +114,8 @@ export function ResumeViewer({ onBack, onEdit, userId, readOnly = false }: Resum
     // Helper to format currency
     const formatSalary = (salary: string) => {
         if (!salary) return '';
-        if (salary.includes('₽') || salary.includes('$')) return salary;
-        return `${salary.replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₽`;
+        if (salary.includes('₸') || salary.includes('$')) return salary;
+        return `${salary.replace(/\B(?=(\d{3})+(?!\d))/g, " ")} ₸`;
     };
 
     return (

@@ -37,6 +37,12 @@ export const marketApiService = {
         return response.data;
     },
 
+    async getListingById(id: string): Promise<MarketListing> {
+        const response = await apiClient.get<any>(`/market/${id}`);
+        if (!response.success) throw new Error(response.message);
+        return response.data;
+    },
+
     async getUserListings(userId: string): Promise<MarketListing[]> {
         const response = await apiClient.get<any>(`/market/user/${userId}`);
         return response.data;

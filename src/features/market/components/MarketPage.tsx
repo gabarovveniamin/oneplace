@@ -13,6 +13,7 @@ import {
     Heart,
     Plus
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '../../../shared/ui/components/button';
 import { cn } from '../../../shared/ui/components/utils';
 import { marketApiService, MarketListing } from '../../../core/api/market';
@@ -41,9 +42,12 @@ const CATEGORIES = [
 interface MarketPageProps {
     onBack: () => void;
     onPostClick: () => void;
+    onItemClick: (item: MarketListing) => void;
 }
 
-export function MarketPage({ onBack, onPostClick }: MarketPageProps) {
+import { MarketCardSkeleton } from './MarketCardSkeleton';
+
+export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps) {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [realListings, setRealListings] = useState<MarketListing[]>([]);
@@ -188,17 +192,40 @@ export function MarketPage({ onBack, onPostClick }: MarketPageProps) {
                     </div>
 
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 animate-pulse text-center">
-                            <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mb-4">
-                                <ShoppingBag className="w-8 h-8 text-purple-600/40" />
-                            </div>
-                            <div className="h-4 w-48 bg-muted rounded-full mb-3 mx-auto" />
-                            <div className="h-3 w-32 bg-muted/60 rounded-full mx-auto" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {Array.from({ length: 8 }).map((_, i) => (
+                                <MarketCardSkeleton key={i} />
+                            ))}
                         </div>
                     ) : filteredProducts.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <motion.div
+                            initial="hidden"
+                            whileInView="show"
+                            viewport={{ once: true }}
+                            variants={{
+                                hidden: { opacity: 0 },
+                                show: {
+                                    opacity: 1,
+                                    transition: {
+                                        staggerChildren: 0.1
+                                    }
+                                }
+                            }}
+                            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+                        >
                             {filteredProducts.map(product => (
-                                <div key={product.id} className="group bg-card rounded-3xl border border-border overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500">
+                                <motion.div
+                                    key={product.id}
+                                    variants={{
+                                        hidden: { opacity: 0, y: 30 },
+                                        show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+                                    }}
+                                    onClick={() => {
+                                        const listing = realListings.find(l => l.id === product.id);
+                                        if (listing) onItemClick(listing);
+                                    }}
+                                    className="group bg-card rounded-3xl border border-border overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer"
+                                >
                                     <div className="relative aspect-[4/3] overflow-hidden">
                                         <img
                                             src={product.image}
@@ -237,7 +264,7 @@ export function MarketPage({ onBack, onPostClick }: MarketPageProps) {
                                             <div className="space-y-1">
                                                 <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Цена</div>
                                                 <div className="text-xl font-black text-foreground">
-                                                    {product.price.toLocaleString()} ₽
+                                                    {product.price.toLocaleString()} ₸
                                                 </div>
                                             </div>
                                             <div className="flex items-center bg-muted/50 px-2 py-1 rounded-lg">
@@ -246,9 +273,9 @@ export function MarketPage({ onBack, onPostClick }: MarketPageProps) {
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
-                        </div>
+                        </motion.div>
                     ) : (
                         <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl">
                             <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />

@@ -170,7 +170,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
 
                 {/* Уровень дохода от */}
                 <div className="space-y-2">
-                  <Label>Зарплата от (₽)</Label>
+                  <Label>Зарплата от (₸)</Label>
                   <Input
                     type="number"
                     placeholder="0"
@@ -181,7 +181,7 @@ export function AdvancedSearch({ onSearch, onClear, isOpen, onToggle }: Advanced
 
                 {/* Уровень дохода до */}
                 <div className="space-y-2">
-                  <Label>Зарплата до (₽)</Label>
+                  <Label>Зарплата до (₸)</Label>
                   <Input
                     type="number"
                     placeholder="1000000"
