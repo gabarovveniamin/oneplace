@@ -23,6 +23,7 @@ interface HeaderProps {
   onRegisterClick?: () => void;
   onProfileClick?: () => void;
   onMessagesClick?: () => void;
+  onMarketClick?: () => void;
   onAdminClick?: () => void;
   onLogout?: () => void;
   currentUser?: UserResponse | null;
@@ -42,6 +43,7 @@ export function Header({
   onRegisterClick,
   onProfileClick,
   onMessagesClick,
+  onMarketClick,
   onAdminClick,
   onLogout,
   currentUser,
@@ -158,6 +160,14 @@ export function Header({
               <div className="hidden lg:block">
                 <ThemeToggle isDark={isDarkMode} onToggle={onThemeToggle} />
               </div>
+
+              <Button
+                variant="ghost"
+                className="hidden md:flex text-sm font-medium text-adaptive hover-adaptive"
+                onClick={onMarketClick}
+              >
+                Маркет
+              </Button>
 
               {currentUser ? (
                 <div className="flex items-center gap-1 sm:gap-3">

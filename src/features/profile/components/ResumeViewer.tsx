@@ -15,8 +15,13 @@ import {
     ExternalLink,
     User,
     Github,
-    Linkedin
+    Linkedin,
+    UserPlus,
+    UserCheck,
+    Clock,
+    ShieldCheck
 } from "lucide-react";
+import { friendshipAPI, FriendshipStatus } from '../../../core/api/friendships';
 import { Button } from "../../../shared/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../shared/ui/components/card";
 import { Badge } from "../../../shared/ui/components/badge";
@@ -29,6 +34,7 @@ interface ResumeViewerProps {
     onEdit?: () => void;
     userId?: string;
     readOnly?: boolean;
+    onFriendRequestSent?: () => void;
 }
 
 export function ResumeViewer({ onBack, onEdit, userId, readOnly = false }: ResumeViewerProps) {
@@ -36,6 +42,10 @@ export function ResumeViewer({ onBack, onEdit, userId, readOnly = false }: Resum
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [userProfile, setUserProfile] = useState<UserResponse | null>(null); // For avatar and name if not in resume
+    const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>({ status: 'none' });
+    const [friendActionLoading, setFriendActionLoading] = useState(false);
+
+    const isOwnResume = !userId || (authApiService.getCurrentUser()?.id === userId);
 
     useEffect(() => {
         const loadData = async () => {
@@ -50,6 +60,16 @@ export function ResumeViewer({ onBack, onEdit, userId, readOnly = false }: Resum
 
                 setResume(resumeData);
                 setUserProfile(profileData);
+
+                // Load friendship status if viewing someone else
+                if (userId && !isOwnResume) {
+                    try {
+                        const status = await friendshipAPI.getFriendshipStatus(userId);
+                        setFriendshipStatus(status);
+                    } catch (e) {
+                        console.warn('Failed to load friendship status', e);
+                    }
+                }
             } catch (err: any) {
                 console.error('Failed to load resume data', err);
                 setError('Не удалось загрузить резюме');
@@ -116,6 +136,57 @@ export function ResumeViewer({ onBack, onEdit, userId, readOnly = false }: Resum
                             <Edit2 className="h-4 w-4 mr-2" />
                             Редактировать
                         </Button>
+                    )}
+
+                    {!isOwnResume && (
+                        <div className="flex gap-2">
+                            {friendshipStatus.status === 'none' && (
+                                <Button
+                                    onClick={async () => {
+                                        if (!userId) return;
+                                        setFriendActionLoading(true);
+                                        try {
+                                            const res = await friendshipAPI.sendFriendRequest(userId);
+                                            setFriendshipStatus({ id: res.id, direction: 'outgoing', status: 'pending' });
+                                        } finally { setFriendActionLoading(false); }
+                                    }}
+                                    disabled={friendActionLoading}
+                                    className="bg-green-600 hover:bg-green-700 text-white"
+                                >
+                                    <UserPlus className="h-4 w-4 mr-2" />
+                                    Добавить в друзья
+                                </Button>
+                            )}
+                            {friendshipStatus.status === 'pending' && friendshipStatus.direction === 'outgoing' && (
+                                <Button disabled variant="secondary" className="bg-gray-100 text-gray-600">
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    Заявка отправлена
+                                </Button>
+                            )}
+                            {friendshipStatus.status === 'pending' && friendshipStatus.direction === 'incoming' && (
+                                <Button
+                                    onClick={async () => {
+                                        if (!friendshipStatus.id) return;
+                                        setFriendActionLoading(true);
+                                        try {
+                                            await friendshipAPI.acceptFriendRequest(friendshipStatus.id);
+                                            setFriendshipStatus({ ...friendshipStatus, status: 'accepted' });
+                                        } finally { setFriendActionLoading(false); }
+                                    }}
+                                    disabled={friendActionLoading}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                    Принять заявку
+                                </Button>
+                            )}
+                            {friendshipStatus.status === 'accepted' && (
+                                <Button disabled variant="outline" className="text-green-600 border-green-200 bg-green-50">
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
+                                    В друзьях
+                                </Button>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>

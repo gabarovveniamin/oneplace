@@ -8,6 +8,7 @@ import {
   changePassword,
   registerValidation,
   loginValidation,
+  searchUsers
 } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validation';
@@ -22,6 +23,7 @@ router.post('/login', loginValidation, validate(loginValidation), login);
 // Protected routes
 router.get('/profile', authenticate, getProfile);
 router.get('/users/:userId', authenticate, getUserById);
+router.get('/search', authenticate, searchUsers);
 router.put('/profile',
   authenticate,
   validate([

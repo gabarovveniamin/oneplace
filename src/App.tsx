@@ -13,13 +13,15 @@ import { MessengerPopover } from './features/chat/components/MessengerPopover';
 import { MessagesPage } from './features/messages/components/MessagesPage';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
 import { ServiceHub } from './features/hub/components/ServiceHub';
+import { MarketPage } from './features/market/components/MarketPage';
+import { PostMarketItem } from './features/market/components/PostMarketItem';
 import { Job, SearchFilters } from './shared/types/job';
 import { Chat } from './core/api/chat';
 import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'hub' | 'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages'>('hub');
+  const [currentView, setCurrentView] = useState<'hub' | 'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages' | 'market' | 'market-post'>('hub');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [searchValue, setSearchValue] = useState('');
@@ -245,6 +247,7 @@ export default function App() {
           window.location.hash = '#messages';
           setCurrentView('messages');
         }}
+        onMarketClick={() => setCurrentView('market')}
         onAdminClick={() => setCurrentView('admin')}
         onLogout={handleLogout}
         currentUser={currentUser}
@@ -269,7 +272,22 @@ export default function App() {
           {currentView === 'hub' && (
             <ServiceHub onSelectService={(service) => {
               if (service === 'jobs') setCurrentView('home');
+              if (service === 'market') setCurrentView('market');
             }} />
+          )}
+
+          {currentView === 'market' && (
+            <MarketPage
+              onBack={() => setCurrentView('hub')}
+              onPostClick={() => setCurrentView('market-post')}
+            />
+          )}
+
+          {currentView === 'market-post' && (
+            <PostMarketItem
+              onBack={() => setCurrentView('market')}
+              onComplete={() => setCurrentView('market')}
+            />
           )}
 
           {currentView === 'home' && (
@@ -293,6 +311,7 @@ export default function App() {
             <Profile
               userId={viewTargetUserId}
               onChatOpen={setActiveChat}
+              onPostMarketItem={() => setCurrentView('market-post')}
               onBack={() => {
                 handleBackToHome();
                 setViewTargetUserId(undefined);

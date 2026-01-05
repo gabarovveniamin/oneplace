@@ -286,6 +286,33 @@ export const updateProfile = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+// Search users
+export const searchUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { q } = req.query;
+    const currentUser = (req as any).user as User;
+
+    const searchTerm = typeof q === 'string' ? q : '';
+    const users = await UserModel.searchUsers(searchTerm, currentUser.id);
+
+    res.json({
+      success: true,
+      data: {
+        users: users.map(user => ({
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          avatar: user.avatar,
+          role: user.role
+        }))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Change password
 export const changePassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

@@ -20,6 +20,8 @@ import favoritesRoutes from './routes/favorites';
 import applicationRoutes from './routes/applications';
 import notificationRoutes from './routes/notifications';
 import chatRoutes from './routes/chat';
+import friendshipRoutes from './routes/friendships';
+import marketRoutes from './routes/market';
 import { resumeController } from './controllers/resumeController';
 import path from 'path';
 
@@ -97,6 +99,8 @@ app.use('/api/favorites', favoritesRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/friendships', friendshipRoutes);
+app.use('/api/market', marketRoutes);
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
@@ -129,3 +133,4 @@ server.listen(PORT, () => {
 });
 
 export default app;
+

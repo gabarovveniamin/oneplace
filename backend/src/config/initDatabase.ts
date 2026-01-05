@@ -169,9 +169,45 @@ export const initializeDatabase = async () => {
     `);
 
 
+    // 8. Таблица друзей
+    await query(`
+      CREATE TABLE IF NOT EXISTS friendships (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        friend_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted')),
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, friend_id),
+        CHECK (user_id != friend_id)
+      )
+    `);
+
+    // 9. Таблица товаров в маркете (объявления)
+    await query(`
+      CREATE TABLE IF NOT EXISTS market_listings (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        description TEXT NOT NULL,
+        price NUMERIC(15, 2) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        images JSONB DEFAULT '[]',
+        location VARCHAR(255),
+        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'sold', 'hidden')),
+        views INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Создание индексов
+    await query('CREATE INDEX IF NOT EXISTS idx_friendships_user_ids ON friendships(user_id, friend_id)');
     await query('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
     await query('CREATE INDEX IF NOT EXISTS idx_jobs_search ON jobs USING GIN (to_tsvector(\'russian\', title || \' \' || company || \' \' || description))');
+    await query('CREATE INDEX IF NOT EXISTS idx_market_listings_user_id ON market_listings(user_id)');
+    await query('CREATE INDEX IF NOT EXISTS idx_market_listings_category ON market_listings(category)');
+    await query('CREATE INDEX IF NOT EXISTS idx_market_listings_trgm ON market_listings USING GIN ((title || \' \' || description) gin_trgm_ops)');
 
     // Триграммные индексы для нечеткого поиска
     await query('CREATE INDEX IF NOT EXISTS idx_jobs_trgm ON jobs USING GIN ((title || \' \' || company) gin_trgm_ops)');

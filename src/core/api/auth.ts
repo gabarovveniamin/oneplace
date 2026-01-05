@@ -114,6 +114,12 @@ export class AuthApiService {
     });
   }
 
+  // Поиск пользователей
+  async searchUsers(queryStr: string): Promise<UserResponse[]> {
+    const response = await apiClient.get<any>(`/auth/search?q=${encodeURIComponent(queryStr)}`);
+    return response.data?.users || [];
+  }
+
   // Выход
   logout(): void {
     localStorage.removeItem('authToken');

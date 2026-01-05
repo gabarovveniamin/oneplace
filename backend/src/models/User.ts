@@ -225,6 +225,20 @@ export class UserModel {
     return result.rows.length > 0;
   }
 
+  // Поиск пользователей по имени или email (для друзей)
+  static async searchUsers(queryStr: string, excludeUserId: string): Promise<User[]> {
+    const searchTerm = `%${queryStr}%`;
+    const result = await query(
+      `SELECT * FROM users 
+       WHERE (id != $1) 
+       AND (first_name ILIKE $2 OR last_name ILIKE $2 OR email ILIKE $2)
+       LIMIT 20`,
+      [excludeUserId, searchTerm]
+    );
+
+    return result.rows.map(row => this.mapRowToUser(row));
+  }
+
   // Получить всех пользователей (для админки)
   static async findAll(): Promise<User[]> {
     const result = await query(

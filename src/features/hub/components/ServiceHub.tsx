@@ -4,7 +4,7 @@ import { Button } from '../../../shared/ui/components/button';
 import { cn } from '../../../shared/ui/components/utils';
 
 interface ServiceHubProps {
-    onSelectService: (service: 'jobs') => void;
+    onSelectService: (service: 'jobs' | 'market') => void;
 }
 
 export function ServiceHub({ onSelectService }: ServiceHubProps) {
@@ -26,7 +26,8 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
             icon: Store,
             color: 'bg-purple-600',
             gradient: 'from-purple-600 to-purple-700',
-            available: false
+            available: true,
+            action: () => onSelectService('market')
         },
         {
             id: 'social',

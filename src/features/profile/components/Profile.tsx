@@ -24,7 +24,8 @@ import {
   User as UserIcon,
   ClipboardList,
   Heart,
-  MessageSquare
+  MessageSquare,
+  ShoppingBag
 } from "lucide-react";
 import { authApiService } from '../../../core/api/auth';
 import { ApiError } from '../../../core/api';
@@ -33,10 +34,14 @@ import { ApplicationsSection } from "./ApplicationsSection";
 import { EmployerApplicationsSection } from "./EmployerApplicationsSection";
 import { Job } from "../../../shared/types/job";
 import { cn } from "../../../shared/ui/components/utils";
+import { friendshipAPI, FriendshipStatus } from '../../../core/api/friendships';
+import { UserPlus, UserCheck, UserMinus, Clock, Users, ShieldCheck } from 'lucide-react';
+import { FriendsSection } from './FriendsSection';
 
 import { resumeApiService } from '../../../core/api/resume';
 import { ChatWindow } from "../../chat/components/ChatWindow";
 import { Chat } from '../../../core/api/chat';
+import { MarketSection } from './MarketSection';
 
 interface ProfileProps {
   onBack: () => void;
@@ -46,6 +51,7 @@ interface ProfileProps {
   onShowResume?: () => void;
   userId?: string;
   onChatOpen?: (chat: Chat) => void;
+  onPostMarketItem?: () => void;
 }
 
 interface UserProfile {
@@ -60,19 +66,21 @@ interface UserProfile {
   lastLogin?: string;
 }
 
-export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onShowResume, userId, onChatOpen }: ProfileProps) {
+export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onShowResume, userId, onChatOpen, onPostMarketItem }: ProfileProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [hasResume, setHasResume] = useState(false);
+  const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>({ status: 'none' });
+  const [friendActionLoading, setFriendActionLoading] = useState(false);
 
   // Determine if we are viewing our own profile
   // If userId is undefined, we assume it's the current user (own profile)
   // But we need to verify against the actual logged-in user ID to be sure
   const currentUser = authApiService.getCurrentUser();
-  const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
+  const isOwnProfile = Boolean(!userId || (currentUser && currentUser.id === userId));
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState({
@@ -114,7 +122,7 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'info' | 'applications' | 'favorites'>('info');
+  const [activeSection, setActiveSection] = useState<'info' | 'applications' | 'favorites' | 'friends' | 'market'>('info');
 
   useEffect(() => {
     loadProfile();
@@ -142,6 +150,16 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
           phone: profileData.orgPhone || '',
           logo: profileData.orgLogo || ''
         });
+      }
+
+      // Load friendship status if viewing someone else
+      if (!isOwnProfile && userId) {
+        try {
+          const status = await friendshipAPI.getFriendshipStatus(userId);
+          setFriendshipStatus(status);
+        } catch (e) {
+          console.warn('Failed to load friendship status', e);
+        }
       }
 
       // Handle extra data (Bio, Skills, etc.) via Resume or LocalStorage
@@ -421,6 +439,51 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
     }
   };
 
+  const handleFriendRequest = async () => {
+    if (!userId || isOwnProfile) return;
+    try {
+      setFriendActionLoading(true);
+      setError(null);
+      if (friendshipStatus.status === 'none') {
+        const result = await friendshipAPI.sendFriendRequest(userId);
+        setFriendshipStatus({ id: result.id, direction: 'outgoing', status: 'pending' });
+        setSuccess('✅ Заявка в друзья отправлена!');
+      } else if (friendshipStatus.status === 'pending' && friendshipStatus.direction === 'incoming') {
+        if (friendshipStatus.id) {
+          await friendshipAPI.acceptFriendRequest(friendshipStatus.id);
+          setFriendshipStatus({ ...friendshipStatus, status: 'accepted' });
+          setSuccess('✅ Заявка принята! Теперь вы друзья.');
+        }
+      } else if (friendshipStatus.status === 'accepted') {
+        if (window.confirm('Вы уверены, что хотите удалить пользователя из друзей?')) {
+          await friendshipAPI.removeFriend(userId);
+          setFriendshipStatus({ status: 'none' });
+          setSuccess('Пользователь удален из друзей');
+        }
+      }
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError(err?.message || 'Ошибка при выполнении действия с друзьями');
+    } finally {
+      setFriendActionLoading(false);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!friendshipStatus.id) return;
+    try {
+      setFriendActionLoading(true);
+      await friendshipAPI.rejectFriendRequest(friendshipStatus.id);
+      setFriendshipStatus({ status: 'none' });
+      setSuccess('Заявка отменена');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      setError('Не удалось отменить заявку');
+    } finally {
+      setFriendActionLoading(false);
+    }
+  };
+
   const formatPhoneNumber = (value: string) => {
     // Remove all non-digits
     let cleaned = value.replace(/\D/g, '');
@@ -664,7 +727,7 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
                               avatar: user.avatar || null,
                               last_message: '',
                               last_message_at: new Date().toISOString(),
-                              is_read: 1,
+                              is_read: true,
                               sender_id: '',
                               unread_count: 0
                             });
@@ -675,6 +738,54 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
                         <MessageSquare className="h-4 w-4 mr-2" />
                         Написать
                       </Button>
+                    )}
+
+                    {!isOwnProfile && (
+                      <div className="flex gap-2">
+                        {friendshipStatus.status === 'none' && (
+                          <Button
+                            onClick={handleFriendRequest}
+                            disabled={friendActionLoading}
+                            variant="outline"
+                            className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Добавить в друзья
+                          </Button>
+                        )}
+                        {friendshipStatus.status === 'pending' && friendshipStatus.direction === 'outgoing' && (
+                          <Button
+                            onClick={handleCancelRequest}
+                            disabled={friendActionLoading}
+                            variant="secondary"
+                            className="bg-gray-100 text-gray-600"
+                          >
+                            <Clock className="h-4 w-4 mr-2" />
+                            Заявка отправлена
+                          </Button>
+                        )}
+                        {friendshipStatus.status === 'pending' && friendshipStatus.direction === 'incoming' && (
+                          <Button
+                            onClick={handleFriendRequest}
+                            disabled={friendActionLoading}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Принять заявку
+                          </Button>
+                        )}
+                        {friendshipStatus.status === 'accepted' && (
+                          <Button
+                            onClick={handleFriendRequest}
+                            disabled={friendActionLoading}
+                            variant="outline"
+                            className="text-green-600 border-green-200 bg-green-50"
+                          >
+                            <ShieldCheck className="h-4 w-4 mr-2" />
+                            У вас в друзьях
+                          </Button>
+                        )}
+                      </div>
                     )}
 
                     {isOwnProfile && (
@@ -833,8 +944,34 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
                   <Heart className="h-4 w-4" />
                   Избранное
                 </button>
+
+                <button
+                  onClick={() => setActiveSection('friends')}
+                  className={cn(
+                    "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                    activeSection === 'friends'
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+                  )}
+                >
+                  <Users className="h-4 w-4" />
+                  Друзья
+                </button>
               </>
             )}
+
+            <button
+              onClick={() => setActiveSection('market')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                activeSection === 'market'
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+              )}
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Маркет
+            </button>
           </div>
         </div>
 
@@ -1223,6 +1360,18 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
 
           {activeSection === 'favorites' && isOwnProfile && (
             <FavoritesSection onJobClick={onJobClick} />
+          )}
+
+          {activeSection === 'friends' && isOwnProfile && (
+            <FriendsSection onChatOpen={onChatOpen} />
+          )}
+
+          {activeSection === 'market' && (
+            <MarketSection
+              userId={userId || currentUser?.id || ''}
+              isOwnProfile={isOwnProfile}
+              onPostClick={onPostMarketItem}
+            />
           )}
         </div>
       </div>
