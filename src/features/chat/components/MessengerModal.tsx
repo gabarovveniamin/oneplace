@@ -26,6 +26,8 @@ import { useChat } from '../hooks/useChat';
 import { authApiService } from '../../../core/api/auth';
 import { cn } from '../../../shared/ui/components/utils';
 import { useSocket } from '../../../core/socket/SocketContext';
+import { ModernAudioPlayer } from './ModernAudioPlayer';
+import { config } from '../../../config/env';
 
 export function MessengerModal() {
     const [chats, setChats] = useState<Chat[]>([]);
@@ -214,7 +216,16 @@ export function MessengerModal() {
                                                             : "bg-[#1e293b] text-white rounded-tl-sm"
                                                     )}
                                                 >
-                                                    <p className="text-[14px] leading-relaxed pr-8">{msg.content}</p>
+                                                    <div className="text-[14px] leading-relaxed pr-8">
+                                                        {msg.content.includes('/uploads/voice/') ? (
+                                                            <ModernAudioPlayer
+                                                                url={msg.content.startsWith('http') ? msg.content : `${config.api.baseUrl.replace('/api', '')}${msg.content}`}
+                                                                isMe={isMe}
+                                                            />
+                                                        ) : (
+                                                            msg.content
+                                                        )}
+                                                    </div>
                                                     <span className="absolute bottom-1 right-2 text-[10px] opacity-60">
                                                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>

@@ -24,6 +24,7 @@ import { ScrollArea } from "@/shared/ui/components/scroll-area";
 import { cn } from '@/shared/ui/components/utils';
 import { authApiService } from '@/core/api/auth';
 import { config } from '@/config/env';
+import { ModernAudioPlayer } from '@/features/chat/components/ModernAudioPlayer';
 
 interface MessagesPageProps {
     isDarkMode: boolean;
@@ -372,21 +373,7 @@ export function MessagesPage({ isDarkMode }: MessagesPageProps) {
                 : `${config.api.baseUrl.replace('/api', '')}${msg.content}`;
 
             return (
-                <div className="flex items-center gap-2 min-w-[200px]">
-                    {/* Use key to force re-render if url changes */}
-                    <audio
-                        key={url}
-                        controls
-                        preload="metadata"
-                        crossOrigin="anonymous"
-                        src={url}
-                        className="h-10 w-[240px]"
-                        style={{
-                            borderRadius: '20px'
-                        }}
-                        onError={(e) => console.error('Audio load error:', e)}
-                    />
-                </div>
+                <ModernAudioPlayer url={url} isMe={isMe} />
             );
         }
         return msg.content;

@@ -129,7 +129,6 @@ export default function App() {
           window.location.hash = '#messages';
           setCurrentView('messages');
         }}
-        onMarketClick={() => setCurrentView('market')}
         onCartClick={() => setCurrentView('market-cart')}
         onAdminClick={() => setCurrentView('admin')}
         onLogout={logout}

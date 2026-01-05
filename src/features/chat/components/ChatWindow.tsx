@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../../shared/ui/componen
 import { X, Send, Minus, MessageCircle } from 'lucide-react';
 import { cn } from '../../../shared/ui/components/utils';
 import { authApiService } from '../../../core/api/auth';
+import { ModernAudioPlayer } from './ModernAudioPlayer';
+import { config } from '../../../config/env';
 
 interface ChatWindowProps {
     userId: string;
@@ -109,7 +111,14 @@ export function ChatWindow({ userId, userName, userAvatar, onClose }: ChatWindow
                                                     : "bg-white dark:bg-slate-800 text-foreground border rounded-bl-none"
                                             )}
                                         >
-                                            {msg.content}
+                                            {msg.content.includes('/uploads/voice/') ? (
+                                                <ModernAudioPlayer
+                                                    url={msg.content.startsWith('http') ? msg.content : `${config.api.baseUrl.replace('/api', '')}${msg.content}`}
+                                                    isMe={isMe}
+                                                />
+                                            ) : (
+                                                msg.content
+                                            )}
                                         </div>
                                         <span className="text-[10px] mt-1 opacity-50 px-1">
                                             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
