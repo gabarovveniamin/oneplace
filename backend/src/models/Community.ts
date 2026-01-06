@@ -8,6 +8,7 @@ export interface CommunityPost {
     likesCount: number;
     commentsCount: number;
     sharesCount: number;
+    viewsCount: number;
     createdAt: Date;
     updatedAt: Date;
     // Joined user data
@@ -15,6 +16,9 @@ export interface CommunityPost {
     userLastName?: string;
     userAvatar?: string;
     isLiked?: boolean; // For the current user
+    isReposted?: boolean; // For the current user
+    isRepost?: boolean; // Is this a repost item in timeline
+    repostedBy?: string; // Name of person who reposted
 }
 
 export interface TrendingTag {
@@ -100,14 +104,29 @@ export class CommunityModel {
 
     static async getPosts(currentUserId?: string, limit = 50, offset = 0): Promise<CommunityPost[]> {
         const result = await query(
-            `SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.created_at, p.updated_at, 
-                    u.first_name, u.last_name, u.avatar,
-                    u.role as user_role,
-                    EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked
-             FROM community_posts p
-             JOIN users u ON p.user_id = u.id
-             ORDER BY p.created_at DESC
-             LIMIT $2 OFFSET $3`,
+            `SELECT * FROM (
+                SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.views_count, p.created_at, p.updated_at, 
+                       u.first_name, u.last_name, u.avatar, u.role as user_role,
+                       EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked,
+                       EXISTS(SELECT 1 FROM community_reposts r WHERE r.post_id = p.id AND r.user_id = $1) as is_reposted,
+                       false as is_repost, NULL as reposted_by, p.created_at as timeline_date
+                FROM community_posts p
+                JOIN users u ON p.user_id = u.id
+
+                UNION ALL
+
+                SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.views_count, p.created_at, p.updated_at, 
+                       u.first_name, u.last_name, u.avatar, u.role as user_role,
+                       EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked,
+                       EXISTS(SELECT 1 FROM community_reposts r WHERE r.post_id = p.id AND r.user_id = $1) as is_reposted,
+                       true as is_repost, r_u.first_name || ' ' || r_u.last_name as reposted_by, cr.created_at as timeline_date
+                FROM community_posts p
+                JOIN community_reposts cr ON p.id = cr.post_id
+                JOIN users u ON p.user_id = u.id
+                JOIN users r_u ON cr.user_id = r_u.id
+            ) all_posts
+            ORDER BY timeline_date DESC
+            LIMIT $2 OFFSET $3`,
             [currentUserId || null, limit, offset]
         );
         return result.rows.map(row => this.mapRowToPost(row));
@@ -115,15 +134,31 @@ export class CommunityModel {
 
     static async getPostsByAuthor(authorId: string, currentUserId?: string, limit = 50, offset = 0): Promise<CommunityPost[]> {
         const result = await query(
-            `SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.created_at, p.updated_at, 
-                    u.first_name, u.last_name, u.avatar,
-                    u.role as user_role,
-                    EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $2) as is_liked
-             FROM community_posts p
-             JOIN users u ON p.user_id = u.id
-             WHERE p.user_id = $1
-             ORDER BY p.created_at DESC
-             LIMIT $3 OFFSET $4`,
+            `SELECT * FROM (
+                SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.views_count, p.created_at, p.updated_at, 
+                       u.first_name, u.last_name, u.avatar, u.role as user_role,
+                       EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $2) as is_liked,
+                       EXISTS(SELECT 1 FROM community_reposts r WHERE r.post_id = p.id AND r.user_id = $2) as is_reposted,
+                       false as is_repost, NULL as reposted_by, p.created_at as timeline_date
+                FROM community_posts p
+                JOIN users u ON p.user_id = u.id
+                WHERE p.user_id = $1
+
+                UNION ALL
+
+                SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.views_count, p.created_at, p.updated_at, 
+                       u.first_name, u.last_name, u.avatar, u.role as user_role,
+                       EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $2) as is_liked,
+                       EXISTS(SELECT 1 FROM community_reposts r WHERE r.post_id = p.id AND r.user_id = $2) as is_reposted,
+                       true as is_repost, r_u.first_name || ' ' || r_u.last_name as reposted_by, cr.created_at as timeline_date
+                FROM community_posts p
+                JOIN community_reposts cr ON p.id = cr.post_id
+                JOIN users u ON p.user_id = u.id
+                JOIN users r_u ON cr.user_id = r_u.id
+                WHERE cr.user_id = $1
+            ) wall
+            ORDER BY timeline_date DESC
+            LIMIT $3 OFFSET $4`,
             [authorId, currentUserId || null, limit, offset]
         );
         return result.rows.map(row => this.mapRowToPost(row));
@@ -131,7 +166,7 @@ export class CommunityModel {
 
     static async getLikedPosts(userId: string, limit = 50, offset = 0): Promise<CommunityPost[]> {
         const result = await query(
-            `SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.created_at, p.updated_at, 
+            `SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.views_count, p.created_at, p.updated_at, 
                     u.first_name, u.last_name, u.avatar,
                     u.role as user_role,
                     true as is_liked
@@ -277,12 +312,80 @@ export class CommunityModel {
             likesCount: row.likes_count,
             commentsCount: row.comments_count,
             sharesCount: row.shares_count,
+            viewsCount: row.views_count,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             userFirstName: row.first_name,
             userLastName: row.last_name,
             userAvatar: row.avatar,
-            isLiked: row.is_liked
+            isLiked: row.is_liked,
+            isReposted: row.is_reposted,
+            isRepost: row.is_repost,
+            repostedBy: row.reposted_by
         };
+    }
+
+    static async repostPost(userId: string, postId: string): Promise<void> {
+        // Toggle repost (like a retweet toggle)
+        const client = await import('../config/database').then(m => m.getClient());
+        try {
+            await client.query('BEGIN');
+
+            const check = await client.query(
+                'SELECT 1 FROM community_reposts WHERE post_id = $1 AND user_id = $2',
+                [postId, userId]
+            );
+
+            if (check.rowCount && check.rowCount > 0) {
+                // Undo repost
+                await client.query('DELETE FROM community_reposts WHERE post_id = $1 AND user_id = $2', [postId, userId]);
+                await client.query('UPDATE community_posts SET shares_count = GREATEST(shares_count - 1, 0) WHERE id = $1', [postId]);
+            } else {
+                // Repost
+                await client.query('INSERT INTO community_reposts (post_id, user_id) VALUES ($1, $2)', [postId, userId]);
+                await client.query('UPDATE community_posts SET shares_count = shares_count + 1 WHERE id = $1', [postId]);
+            }
+
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+    }
+
+    static async incrementView(postId: string, userId?: string): Promise<void> {
+        // userId is optional for unique views (only track if user is logged in for "unique" logic as requested)
+        // If user is not logged in, we COULD track by IP, but for now let's stick to userId as requested "unique views"
+        // Also the user said "dont invent, only unique". 
+        if (!userId) {
+            // If no user, maybe just increment counter? but user said only unique.
+            // Let's assume we only track unique views for logged in users.
+            return;
+        }
+
+        const client = await import('../config/database').then(m => m.getClient());
+        try {
+            await client.query('BEGIN');
+
+            const check = await client.query(
+                'SELECT 1 FROM community_post_views WHERE post_id = $1 AND user_id = $2',
+                [postId, userId]
+            );
+
+            if (!check.rowCount || check.rowCount === 0) {
+                // First time view
+                await client.query('INSERT INTO community_post_views (post_id, user_id) VALUES ($1, $2)', [postId, userId]);
+                await client.query('UPDATE community_posts SET views_count = views_count + 1 WHERE id = $1', [postId]);
+            }
+
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
     }
 }
