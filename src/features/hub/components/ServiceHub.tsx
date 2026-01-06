@@ -113,9 +113,6 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
                     ))}
                 </div>
 
-                <div className="text-center text-sm text-muted-foreground pt-8">
-                    © 2024 OnePlace Ecosystem. Все права защищены.
-                </div>
             </div>
         </div>
     );

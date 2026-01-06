@@ -9,6 +9,8 @@ import { applicationsApiService } from '../../../core/api/applications';
 import { authApiService } from '../../../core/api/auth';
 import { ApiError } from '../../../core/api';
 
+import { toast } from 'sonner';
+
 interface JobDetailsProps {
   job: Job;
   onBack: () => void;
@@ -29,7 +31,7 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
 
   const handleApply = async () => {
     if (!authApiService.isAuthenticated()) {
-      alert('Пожалуйста, войдите в систему, чтобы откликнуться');
+      toast.error('Пожалуйста, войдите или зарегистрируйтесь, чтобы откликнуться');
       return;
     }
 
@@ -199,7 +201,17 @@ export function JobDetails({ job, onBack }: JobDetailsProps) {
                       {isApplying ? 'Отправка...' : 'Откликнуться'}
                     </Button>
                   )}
-                  <Button variant="outline" className="w-full border-border hover:bg-accent">
+                  <Button
+                    variant="outline"
+                    className="w-full border-border hover:bg-accent"
+                    onClick={() => {
+                      if (!authApiService.isAuthenticated()) {
+                        toast.error('Пожалуйста, войдите или зарегистрируйтесь, чтобы сохранить вакансию');
+                        return;
+                      }
+                      toast.success('Вакансия сохранена в избранное');
+                    }}
+                  >
                     Сохранить вакансию
                   </Button>
                 </div>

@@ -24,7 +24,8 @@ class SocketManager {
             const token = socket.handshake.auth.token || socket.handshake.headers['authorization'];
 
             if (!token) {
-                return next(new Error('Authentication error: No token provided'));
+                // Allow guest connections
+                return next();
             }
 
             try {
@@ -33,11 +34,15 @@ class SocketManager {
                 socket.userId = decoded.userId;
                 next();
             } catch (err) {
-                return next(new Error('Authentication error: Invalid token'));
+                // If token is invalid, also allow as guest but don't set userId
+                next();
             }
         });
 
         this.io.on('connection', (socket: SocketWithUser) => {
+            // Broadcast current online count to everyone
+            this.broadcastOnlineCount();
+
             const userId = socket.userId;
             if (userId) {
                 console.log(`🔌 User connected: ${userId} (${socket.id})`);
@@ -59,8 +64,12 @@ class SocketManager {
                 socket.on('stop_typing', (data: { receiverId: string }) => {
                     this.sendToUser(data.receiverId, 'user_stop_typing', { userId });
                 });
+            } else {
+                console.log(`🔌 Guest connected: (${socket.id})`);
+            }
 
-                socket.on('disconnect', () => {
+            socket.on('disconnect', () => {
+                if (userId) {
                     console.log(`🔌 User disconnected: ${userId} (${socket.id})`);
                     const updated = this.userSockets.get(userId)?.filter(id => id !== socket.id) || [];
                     if (updated.length === 0) {
@@ -69,8 +78,11 @@ class SocketManager {
                     } else {
                         this.userSockets.set(userId, updated);
                     }
-                });
-            }
+                } else {
+                    console.log(`🔌 Guest disconnected: (${socket.id})`);
+                }
+                this.broadcastOnlineCount();
+            });
         });
     }
 
@@ -91,6 +103,12 @@ class SocketManager {
     public broadcast(event: string, data: any): void {
         if (!this.io) return;
         this.io.emit(event, data);
+    }
+
+    private broadcastOnlineCount(): void {
+        if (!this.io) return;
+        const count = this.io.engine.clientsCount;
+        this.broadcast('online_count', { count });
     }
 }
 

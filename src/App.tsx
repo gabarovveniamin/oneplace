@@ -8,7 +8,7 @@ import {
   JobDetails
 } from './features/jobs/components';
 import { Profile, PostJob, ResumeViewer } from './features/profile/components';
-import { Registration, ExtendedResumeBuilder, AuthDialog } from './features/auth/components';
+import { Registration, Login, ExtendedResumeBuilder } from './features/auth/components';
 import { ChatWindow } from './features/chat/components/ChatWindow';
 import { MessagesPage } from './features/messages/components/MessagesPage';
 import { AdminDashboard } from './features/admin/components/AdminDashboard';
@@ -24,7 +24,6 @@ import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
 import { Toaster, toast } from 'sonner';
 
-// Custom Hooks for refactoring
 import { useTheme } from './shared/hooks/useTheme';
 import { useAuth } from './shared/hooks/useAuth';
 import { useViewManager } from './shared/hooks/useViewManager';
@@ -34,13 +33,7 @@ export default function App() {
   const {
     currentUser,
     setCurrentUser,
-    isAuthDialogOpen,
-    setIsAuthDialogOpen,
-    authDialogView,
-    setAuthDialogView,
-    logout,
-    openLogin,
-    openRegister
+    logout
   } = useAuth();
   const {
     currentView,
@@ -70,7 +63,6 @@ export default function App() {
     value !== undefined && value !== '' && value !== null
   ).length;
 
-  // Handlers
   const handleJobClick = (job: Job) => {
     setSelectedJob(job);
     setCurrentView('job');
@@ -122,8 +114,8 @@ export default function App() {
         onSearchValueChange={setSearchValue}
         activeFiltersCount={activeFiltersCount}
         onLogoClick={() => navigateTo('hub')}
-        onLoginClick={openLogin}
-        onRegisterClick={openRegister}
+        onLoginClick={() => setCurrentView('login')}
+        onRegisterClick={() => setCurrentView('register')}
         onProfileClick={handleProfileClick}
         onMessagesClick={() => {
           window.location.hash = '#messages';
@@ -267,13 +259,26 @@ export default function App() {
             </PageWrapper>
           )}
 
+          {currentView === 'login' && (
+            <PageWrapper key="login">
+              <Login
+                onBack={handleBackToHome}
+                onLoginSuccess={() => {
+                  setCurrentUser(authApiService.getCurrentUser());
+                  setCurrentView('hub');
+                }}
+                onSwitchToRegister={() => setCurrentView('register')}
+              />
+            </PageWrapper>
+          )}
+
           {currentView === 'register' && (
             <PageWrapper key="register">
               <Registration
                 onBack={handleBackToHome}
                 onRegistrationComplete={(user) => handleRegistrationComplete('basic', user)}
                 onResumeChoice={handleRegistrationComplete}
-                onSwitchToLogin={openLogin}
+                onSwitchToLogin={() => setCurrentView('login')}
               />
             </PageWrapper>
           )}
@@ -320,19 +325,7 @@ export default function App() {
 
       {currentView !== 'messages' && <Footer />}
 
-      <AuthDialog
-        isOpen={isAuthDialogOpen}
-        onClose={() => setIsAuthDialogOpen(false)}
-        defaultView={authDialogView}
-        onResumeChoice={(choice) => {
-          setIsAuthDialogOpen(false);
-          const user = authApiService.getCurrentUser();
-          if (user) {
-            setCurrentUser(user);
-            setCurrentView(choice === 'extended' ? 'resume-builder' : 'profile');
-          }
-        }}
-      />
+
       <Toaster position="top-center" richColors />
     </div>
   );

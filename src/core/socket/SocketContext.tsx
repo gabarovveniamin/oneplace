@@ -6,11 +6,13 @@ import { config } from '../../config/env';
 interface SocketContextType {
     socket: Socket | null;
     isConnected: boolean;
+    onlineCount: number;
 }
 
 const SocketContext = createContext<SocketContextType>({
     socket: null,
     isConnected: false,
+    onlineCount: 0,
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -22,26 +24,17 @@ interface SocketProviderProps {
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [onlineCount, setOnlineCount] = useState<number>(0);
 
     useEffect(() => {
-        // Only connect if user is authenticated
-        if (!authApiService.isAuthenticated()) {
-            if (socket) {
-                socket.disconnect();
-                setSocket(null);
-                setIsConnected(false);
-            }
-            return;
-        }
-
         const token = authApiService.getToken();
         const socketUrl = config.api.baseUrl.replace('/api', ''); // Get base URL without /api
 
         const newSocket = io(socketUrl, {
             auth: {
-                token
+                token: token || undefined
             },
-            transports: ['websocket'], // Prefer websockets
+            transports: ['websocket'],
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
         });
@@ -54,6 +47,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         newSocket.on('disconnect', () => {
             console.log('❌ Disconnected from WebSocket');
             setIsConnected(false);
+        });
+
+        newSocket.on('online_count', (data: { count: number }) => {
+            setOnlineCount(data.count);
         });
 
         newSocket.on('connect_error', (error) => {
@@ -69,7 +66,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     }, [authApiService.isAuthenticated()]);
 
     return (
-        <SocketContext.Provider value={{ socket, isConnected }}>
+        <SocketContext.Provider value={{ socket, isConnected, onlineCount }}>
             {children}
         </SocketContext.Provider>
     );

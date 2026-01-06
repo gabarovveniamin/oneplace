@@ -17,6 +17,9 @@ import { motion } from 'framer-motion';
 import { Button } from '../../../shared/ui/components/button';
 import { cn } from '../../../shared/ui/components/utils';
 import { marketApiService, MarketListing } from '../../../core/api/market';
+import { toast } from 'sonner';
+import { authApiService } from '../../../core/api/auth';
+import { MarketCardSkeleton } from './MarketCardSkeleton';
 
 interface Product {
     id: string;
@@ -45,9 +48,15 @@ interface MarketPageProps {
     onItemClick: (item: MarketListing) => void;
 }
 
-import { MarketCardSkeleton } from './MarketCardSkeleton';
-
 export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps) {
+    const handlePostClick = () => {
+        if (!authApiService.isAuthenticated()) {
+            toast.error('Пожалуйста, войдите или зарегистрируйтесь, чтобы выставить товар');
+            return;
+        }
+        onPostClick();
+    };
+
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [realListings, setRealListings] = useState<MarketListing[]>([]);
@@ -90,7 +99,7 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
     return (
         <div className="min-h-screen bg-background">
             {/* Header / Hero */}
-            <div className="relative h-[400px] overflow-hidden bg-purple-900 flex items-center justify-center pt-20 px-4">
+            <div className="relative h-[450px] overflow-hidden bg-purple-900 flex items-center justify-center pt-32 px-4">
                 <div className="absolute inset-0 z-0">
                     <img
                         src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=2000"
@@ -102,15 +111,6 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
 
                 <div className="relative z-10 max-w-4xl w-full text-center space-y-8">
                     <div className="space-y-4">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onBack}
-                            className="bg-white/10 hover:bg-white/20 text-white border-0 backdrop-blur-md mb-4"
-                        >
-                            <ArrowLeft className="w-4 h-4 mr-2" />
-                            Вернуться в хаб
-                        </Button>
                         <h1 className="text-4xl sm:text-6xl font-bold text-white tracking-tight">
                             OnePlace <span className="text-purple-400">Маркет</span>
                         </h1>
@@ -131,7 +131,7 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
                             />
                         </div>
                         <Button
-                            onClick={onPostClick}
+                            onClick={handlePostClick}
                             className="h-14 px-8 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xl shadow-purple-600/20 whitespace-nowrap"
                         >
                             <Plus className="w-5 h-5 mr-2" />
@@ -285,44 +285,7 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
                     )}
                 </div>
 
-                {/* Seller CTA */}
-                <div className="relative rounded-[40px] overflow-hidden bg-gradient-to-r from-purple-600 to-indigo-700 p-8 sm:p-12 text-white">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
-                    <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-                        <div className="space-y-4 max-w-xl text-center md:text-left">
-                            <h2 className="text-3xl sm:text-4xl font-bold">Стань продавцом на OnePlace</h2>
-                            <p className="text-purple-100/80">Разместите свои товары или услуги и начните зарабатывать. Комиссия 0% на первые 10 сделок.</p>
-                            <div className="flex flex-wrap gap-4 justify-center md:justify-start pt-2">
-                                <div className="flex items-center text-sm font-medium bg-white/10 px-4 py-2 rounded-full border border-white/20">
-                                    <Tag className="w-4 h-4 mr-2" /> Низкие комиссии
-                                </div>
-                                <div className="flex items-center text-sm font-medium bg-white/10 px-4 py-2 rounded-full border border-white/20">
-                                    <Clock className="w-4 h-4 mr-2" /> Быстрые выплаты
-                                </div>
-                            </div>
-                        </div>
-                        <Button
-                            size="lg"
-                            onClick={onPostClick}
-                            className="bg-white text-purple-700 hover:bg-purple-50 h-16 px-12 text-lg font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all"
-                        >
-                            Создать объявление
-                        </Button>
-                    </div>
-                </div>
             </div>
-
-            {/* Simple Footer */}
-            <footer className="border-t border-border mt-20 py-12">
-                <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-muted-foreground">
-                    <div>© 2024 OnePlace Market. Часть экосистемы OnePlace.</div>
-                    <div className="flex gap-8">
-                        <a href="#" className="hover:text-foreground transition-colors">Помощь</a>
-                        <a href="#" className="hover:text-foreground transition-colors">Правила</a>
-                        <a href="#" className="hover:text-foreground transition-colors">Конфиденциальность</a>
-                    </div>
-                </div>
-            </footer>
         </div>
     );
 }
