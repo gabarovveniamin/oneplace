@@ -5,6 +5,7 @@ export interface CommunityPost {
     id: string;
     userId: string;
     content: string;
+    imageUrl?: string;
     likesCount: number;
     commentsCount: number;
     sharesCount: number;
@@ -43,10 +44,16 @@ export const communityApiService = {
         return response as any as TrendingTag[];
     },
 
-    createPost: async (content: string) => {
-        const response = await apiClient.post<CommunityPost>('/community/posts', { content });
+    createPost: async (content: string, image?: File) => {
+        const formData = new FormData();
+        formData.append('content', content);
+        if (image) {
+            formData.append('image', image);
+        }
+        const response = await apiClient.post<CommunityPost>('/community/posts', formData);
         return response as any as CommunityPost;
     },
+
 
     toggleLike: async (postId: string) => {
         const response = await apiClient.post<{ success: boolean }>(`/community/posts/${postId}/like`);

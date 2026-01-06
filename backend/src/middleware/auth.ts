@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserModel, User } from '../models/User';
 import { config } from '../config/config';
+import multer from 'multer';
 
 // Extend Request interface to include user
 declare global {
@@ -14,6 +15,7 @@ declare global {
 
 export interface AuthRequest extends Request {
   user?: User;
+  file?: multer.File;
 }
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
