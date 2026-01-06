@@ -109,6 +109,24 @@ export class CommunityController {
         }
     }
 
+    static async toggleRepost(req: AuthRequest, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            const userId = req.user?.id;
+
+            if (!userId) {
+                res.status(401).json({ message: 'Unauthorized' });
+                return;
+            }
+
+            await CommunityModel.repostPost(userId, id);
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Repost error:', error);
+            res.status(500).json({ message: 'Error toggling repost' });
+        }
+    }
+
     static async getComments(req: AuthRequest, res: Response): Promise<void> {
         try {
             const { id } = req.params;
@@ -164,6 +182,22 @@ export class CommunityController {
         } catch (error) {
             console.error('Delete post error:', error);
             res.status(500).json({ message: 'Error deleting post' });
+        }
+    }
+    static async trackView(req: AuthRequest, res: Response): Promise<void> {
+        try {
+            const { id } = req.params;
+            const userId = req.user?.id;
+
+            // We only track unique views for logged in users as per model logic
+            if (userId) {
+                await CommunityModel.incrementView(id, userId);
+            }
+
+            res.json({ success: true });
+        } catch (error) {
+            console.error('Track view error:', error);
+            res.status(500).json({ message: 'Error tracking view' });
         }
     }
 }

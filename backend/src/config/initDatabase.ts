@@ -227,6 +227,42 @@ export const initializeDatabase = async () => {
       await query('ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS image_url TEXT');
     }
 
+    // Migration: Add views_count to community_posts if not exists
+    const viewsCountCheck = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='community_posts' AND column_name='views_count'
+    `);
+    if (viewsCountCheck.rowCount === 0) {
+      console.log('🚀 Adding views_count column to community_posts table...');
+      await query('ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS views_count INTEGER DEFAULT 0');
+    }
+
+    // Create community_reposts table for retweet functionality
+    await query(`
+      CREATE TABLE IF NOT EXISTS community_reposts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, post_id)
+      )
+    `);
+    await query('CREATE INDEX IF NOT EXISTS idx_community_reposts_user ON community_reposts(user_id)');
+    await query('CREATE INDEX IF NOT EXISTS idx_community_reposts_post ON community_reposts(post_id)');
+
+    // Create community_post_views table for unique view tracking
+    await query(`
+      CREATE TABLE IF NOT EXISTS community_post_views (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        post_id UUID NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, post_id)
+      )
+    `);
+    await query('CREATE INDEX IF NOT EXISTS idx_community_post_views_post ON community_post_views(post_id)');
+
     console.log('✅ PostgreSQL database initialized successfully!');
 
   } catch (error) {

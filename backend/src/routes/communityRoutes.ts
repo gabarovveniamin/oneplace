@@ -12,6 +12,8 @@ router.get('/tags/trending', optionalAuth, CommunityController.getTrendingTags);
 // Protected routes - with image upload support
 router.post('/posts', authenticate, communityUpload.single('image'), CommunityController.createPost);
 router.post('/posts/:id/like', authenticate, CommunityController.toggleLike);
+router.post('/posts/:id/repost', authenticate, CommunityController.toggleRepost);
+router.post('/posts/:id/view', optionalAuth, CommunityController.trackView);
 router.delete('/posts/:id', authenticate, CommunityController.deletePost);
 
 router.get('/posts/:id/comments', optionalAuth, CommunityController.getComments);

@@ -9,12 +9,16 @@ export interface CommunityPost {
     likesCount: number;
     commentsCount: number;
     sharesCount: number;
+    viewsCount: number;
     createdAt: string;
     updatedAt: string;
     userFirstName?: string;
     userLastName?: string;
     userAvatar?: string;
     isLiked?: boolean;
+    isReposted?: boolean;
+    isRepost?: boolean;
+    repostedBy?: string;
 }
 
 export interface TrendingTag {
@@ -57,6 +61,16 @@ export const communityApiService = {
 
     toggleLike: async (postId: string) => {
         const response = await apiClient.post<{ success: boolean }>(`/community/posts/${postId}/like`);
+        return response as any as { success: boolean };
+    },
+
+    toggleRepost: async (postId: string) => {
+        const response = await apiClient.post<{ success: boolean }>(`/community/posts/${postId}/repost`);
+        return response as any as { success: boolean };
+    },
+
+    trackView: async (postId: string) => {
+        const response = await apiClient.post<{ success: boolean }>(`/community/posts/${postId}/view`);
         return response as any as { success: boolean };
     },
 

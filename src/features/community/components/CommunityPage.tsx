@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Share2, Repeat2, Send, Image as ImageIcon, Smile, MoreHorizontal, User as UserIcon, X } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Repeat2, Send, Image as ImageIcon, Smile, MoreHorizontal, User as UserIcon, X, BadgeCheck, BarChart3, Bookmark, Upload, Ban } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Button } from '../../../shared/ui/components/button';
@@ -27,6 +27,37 @@ const EMOJI_CATEGORIES = {
     'Активности': ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛼', '🛷'],
     'Объекты': ['💼', '📱', '💻', '⌨️', '🖥', '🖨', '🖱', '🖲', '💽', '💾', '💿', '📀', '📷', '📸', '📹', '🎥', '📽', '🎞', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙', '🎚', '🎛', '🧭', '⏱', '⏲'],
     'Символы': ['💯', '🔥', '⭐', '🌟', '✨', '⚡', '💫', '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖', '📣', '💬', '💭', '🗯', '💤', '🔔', '🔕', '🎵', '🎶', '🔊', '🔉', '🔈', '🔇']
+};
+
+interface ViewTrackerProps {
+    postId: string;
+    onView?: () => void;
+}
+
+const ViewTracker = ({ postId, onView }: ViewTrackerProps) => {
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    communityApiService.trackView(postId).then(() => {
+                        onView?.();
+                    }).catch(() => { });
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.5 }
+        );
+
+        if (ref.current) {
+            observer.observe(ref.current);
+        }
+
+        return () => observer.disconnect();
+    }, [postId]);
+
+    return <div ref={ref} className="absolute inset-0 pointer-events-none" />;
 };
 
 export function CommunityPage({ onBack }: CommunityPageProps) {
@@ -239,6 +270,62 @@ export function CommunityPage({ onBack }: CommunityPageProps) {
         }
     };
 
+    const handleRepost = async (post: CommunityPost) => {
+        if (!authApiService.isAuthenticated()) {
+            toast.error('Войдите, чтобы сделать репост');
+            return;
+        }
+
+        // Optimistic update
+        const originalPosts = [...posts];
+        const updatedPosts = posts.map(p => {
+            if (p.id === post.id) {
+                return {
+                    ...p,
+                    isReposted: !p.isReposted,
+                    sharesCount: (p.sharesCount || 0) + (p.isReposted ? -1 : 1)
+                };
+            }
+            return p;
+        });
+
+        setPosts(updatedPosts);
+
+        try {
+            await communityApiService.toggleRepost(post.id);
+            toast.success(post.isReposted ? 'Репост отменен' : 'Пост репостнут');
+        } catch (error) {
+            console.error('Failed to repost:', error);
+            setPosts(originalPosts);
+            toast.error('Ошибка при репосте');
+        }
+    };
+
+    const handleShare = async (post: CommunityPost) => {
+        const shareUrl = `${window.location.origin}/community/post/${post.id}`;
+
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: 'OnePlace Community',
+                    text: post.content.substring(0, 100),
+                    url: shareUrl
+                });
+                toast.success('Поделились!');
+            } else {
+                throw new Error('Web Share API not supported');
+            }
+        } catch (error) {
+            // Fallback to clipboard
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                toast.success('Ссылка скопирована в буфер обмена');
+            } catch (clipboardError) {
+                toast.error('Не удалось скопировать ссылку');
+            }
+        }
+    };
+
     // Build image URL helper
     const getImageUrl = (imageUrl: string | undefined) => {
         if (!imageUrl) return undefined;
@@ -392,87 +479,116 @@ export function CommunityPage({ onBack }: CommunityPageProps) {
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                         </div>
                     ) : posts.map((post) => (
-                        <motion.div
-                            key={post.id}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="hover:bg-muted/50 transition-colors cursor-pointer border-b border-border text-left"
+                        <div
+                            key={post.id + (post.isRepost ? '-repost' : '')}
+                            className="hover:bg-muted/10 transition-colors cursor-pointer border-b border-border text-left relative group"
                             onClick={() => handlePostClick(post)}
                         >
-                            <div className="p-4">
-                                <div className="flex gap-4">
-                                    <Avatar className="w-10 h-10">
+                            <ViewTracker postId={post.id} />
+                            <div className="p-4 relative flex gap-3">
+                                {/* Thread line */}
+                                <div className="absolute left-[33px] top-[60px] bottom-0 w-0.5 bg-border/40" />
+
+                                <div className="flex flex-col items-center shrink-0">
+                                    <Avatar className="w-10 h-10 relative z-10">
                                         <AvatarImage src={post.userAvatar} />
-                                        <AvatarFallback>{post.userFirstName?.[0] || '?'}</AvatarFallback>
+                                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                            {post.userFirstName?.[0] || '?'}
+                                        </AvatarFallback>
                                     </Avatar>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="font-bold hover:underline cursor-pointer">
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        <div className="flex items-center gap-1 min-w-0">
+                                            <span className="font-bold text-white hover:underline truncate">
                                                 {post.userFirstName} {post.userLastName}
                                             </span>
-                                            <span className="text-muted-foreground text-sm">
+                                            {(post.userId === '1' || post.userFirstName === 'Timur') && (
+                                                <BadgeCheck className="w-4 h-4 text-[#1d9bf0] fill-current shrink-0" />
+                                            )}
+                                            <span className="text-muted-foreground text-[14px] truncate ml-1">
                                                 @{post.userFirstName?.toLowerCase()}{post.userLastName?.toLowerCase()}
                                             </span>
-                                            <span className="text-muted-foreground text-sm">·</span>
-                                            <span className="text-muted-foreground text-sm hover:underline cursor-pointer">
+                                            <span className="text-muted-foreground text-[14px]">·</span>
+                                            <span className="text-muted-foreground text-[14px] hover:underline shrink-0">
                                                 {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true, locale: ru })}
                                             </span>
-                                            <Button variant="ghost" size="icon" className="ml-auto h-8 w-8 text-muted-foreground rounded-full hover:bg-primary/10 hover:text-primary">
-                                                <MoreHorizontal className="w-4 h-4" />
-                                            </Button>
                                         </div>
 
-                                        <p className="text-base whitespace-pre-wrap break-words mb-3">
-                                            {post.content}
-                                        </p>
-
-                                        {/* Post Image */}
-                                        {post.imageUrl && (
-                                            <div className="mb-3 rounded-xl overflow-hidden border border-border">
-                                                <img
-                                                    src={getImageUrl(post.imageUrl)}
-                                                    alt="Post image"
-                                                    className="w-full max-h-[500px] object-cover"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        window.open(getImageUrl(post.imageUrl), '_blank');
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
-
-                                        <div className="flex justify-between max-w-md text-muted-foreground">
-                                            <button className="flex items-center gap-2 group hover:text-blue-500 transition-colors">
-                                                <div className="p-2 rounded-full group-hover:bg-blue-500/10 transition-colors">
-                                                    <MessageCircle className="w-4 h-4" />
-                                                </div>
-                                                <span className="text-sm">{post.commentsCount || 0}</span>
+                                        <div className="ml-auto flex items-center gap-1">
+                                            <button className="p-2 text-muted-foreground hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
+                                                <Ban className="w-4 h-4" />
                                             </button>
-                                            <button className="flex items-center gap-2 group hover:text-green-500 transition-colors">
-                                                <div className="p-2 rounded-full group-hover:bg-green-500/10 transition-colors">
-                                                    <Repeat2 className="w-4 h-4" />
-                                                </div>
-                                                <span className="text-sm">{post.sharesCount || 0}</span>
+                                            <button className="p-2 text-muted-foreground hover:text-primary transition-colors">
+                                                <MoreHorizontal className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-[15px] leading-normal whitespace-pre-wrap break-words mb-3 text-foreground/95">
+                                        {post.content}
+                                        {post.content.length > 280 && (
+                                            <span className="text-primary hover:underline ml-1 cursor-pointer">Показать еще</span>
+                                        )}
+                                    </div>
+
+                                    {post.imageUrl && (
+                                        <div className="mb-3 rounded-2xl overflow-hidden border border-border/50 bg-muted/20 relative group/image max-w-[500px]">
+                                            <img
+                                                src={getImageUrl(post.imageUrl)}
+                                                alt="Post image"
+                                                className="w-full h-auto object-cover transition-transform duration-500 group-hover/image:scale-[1.01]"
+                                                loading="lazy"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-between items-center max-w-md text-muted-foreground mt-3 -ml-2">
+                                        <button className="flex items-center gap-1.5 group/btn hover:text-blue-400 transition-colors p-2 rounded-full">
+                                            <MessageCircle className="w-[18px] h-[18px]" />
+                                            <span className="text-[13px]">{post.commentsCount || 1}</span>
+                                        </button>
+
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleRepost(post); }}
+                                            className={cn(
+                                                "flex items-center gap-1.5 group/btn transition-colors p-2 rounded-full",
+                                                post.isReposted ? "text-green-500" : "hover:text-green-500"
+                                            )}
+                                        >
+                                            <Repeat2 className="w-[18px] h-[18px]" />
+                                            <span className="text-[13px]">{post.sharesCount || 0}</span>
+                                        </button>
+
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleLike(post); }}
+                                            className={cn(
+                                                "flex items-center gap-1.5 group/btn transition-colors p-2 rounded-full",
+                                                post.isLiked ? "text-pink-600" : "hover:text-pink-600"
+                                            )}
+                                        >
+                                            <Heart className={cn("w-[18px] h-[18px]", post.isLiked && "fill-current")} />
+                                            <span className="text-[13px]">{post.likesCount || 0}</span>
+                                        </button>
+
+                                        <div className="flex items-center gap-1.5 p-2">
+                                            <BarChart3 className="w-[18px] h-[18px]" />
+                                            <span className="text-[13px]">{post.viewsCount || 3}</span>
+                                        </div>
+
+                                        <div className="flex items-center gap-0.5">
+                                            <button
+                                                className="p-2 text-muted-foreground hover:text-blue-400 transition-colors"
+                                                onClick={(e) => { e.stopPropagation(); toast.success('Добавлено в закладки'); }}
+                                            >
+                                                <Bookmark className="w-[18px] h-[18px]" />
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); handleLike(post); }}
-                                                className={cn(
-                                                    "flex items-center gap-2 group transition-colors",
-                                                    post.isLiked ? "text-pink-600" : "hover:text-pink-600"
-                                                )}
+                                                onClick={(e) => { e.stopPropagation(); handleShare(post); }}
+                                                className="p-2 text-muted-foreground hover:text-blue-400 transition-colors"
                                             >
-                                                <div className={cn(
-                                                    "p-2 rounded-full transition-colors",
-                                                    post.isLiked ? "bg-pink-600/10" : "group-hover:bg-pink-600/10"
-                                                )}>
-                                                    <Heart className={cn("w-4 h-4", post.isLiked && "fill-current")} />
-                                                </div>
-                                                <span className="text-sm">{post.likesCount || 0}</span>
-                                            </button>
-                                            <button className="flex items-center gap-2 group hover:text-primary transition-colors">
-                                                <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                                                    <Share2 className="w-4 h-4" />
-                                                </div>
+                                                <Upload className="w-[18px] h-[18px]" />
                                             </button>
                                         </div>
                                     </div>
@@ -481,7 +597,7 @@ export function CommunityPage({ onBack }: CommunityPageProps) {
 
                             {/* Comments Section */}
                             {expandedPostId === post.id && (
-                                <div className="bg-muted/30 p-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
+                                <div className="bg-muted/10 p-4 border-t border-border" onClick={(e) => e.stopPropagation()}>
                                     <div className="space-y-4 mb-4">
                                         {comments[post.id]?.map(comment => (
                                             <div key={comment.id} className="flex gap-3">
@@ -527,8 +643,7 @@ export function CommunityPage({ onBack }: CommunityPageProps) {
                                     </div>
                                 </div>
                             )}
-
-                        </motion.div>
+                        </div>
                     ))}
                 </div>
             </div>
@@ -561,6 +676,6 @@ export function CommunityPage({ onBack }: CommunityPageProps) {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
