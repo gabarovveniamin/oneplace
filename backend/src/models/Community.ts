@@ -4,6 +4,7 @@ export interface CommunityPost {
     id: string;
     userId: string;
     content: string;
+    imageUrl?: string;
     likesCount: number;
     commentsCount: number;
     sharesCount: number;
@@ -34,17 +35,17 @@ export interface CommunityComment {
 }
 
 export class CommunityModel {
-    static async createPost(userId: string, content: string): Promise<CommunityPost> {
+    static async createPost(userId: string, content: string, imageUrl?: string): Promise<CommunityPost> {
         // Transaction to ensure post and tags are consistent
         const client = await import('../config/database').then(m => m.getClient());
         try {
             await client.query('BEGIN');
 
             const result = await client.query(
-                `INSERT INTO community_posts (user_id, content)
-                 VALUES ($1, $2)
+                `INSERT INTO community_posts (user_id, content, image_url)
+                 VALUES ($1, $2, $3)
                  RETURNING *`,
-                [userId, content]
+                [userId, content, imageUrl || null]
             );
             const post = result.rows[0];
 
@@ -99,7 +100,7 @@ export class CommunityModel {
 
     static async getPosts(currentUserId?: string, limit = 50, offset = 0): Promise<CommunityPost[]> {
         const result = await query(
-            `SELECT p.*, 
+            `SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.created_at, p.updated_at, 
                     u.first_name, u.last_name, u.avatar,
                     u.role as user_role,
                     EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $1) as is_liked
@@ -114,7 +115,7 @@ export class CommunityModel {
 
     static async getPostsByAuthor(authorId: string, currentUserId?: string, limit = 50, offset = 0): Promise<CommunityPost[]> {
         const result = await query(
-            `SELECT p.*, 
+            `SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.created_at, p.updated_at, 
                     u.first_name, u.last_name, u.avatar,
                     u.role as user_role,
                     EXISTS(SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = $2) as is_liked
@@ -130,7 +131,7 @@ export class CommunityModel {
 
     static async getLikedPosts(userId: string, limit = 50, offset = 0): Promise<CommunityPost[]> {
         const result = await query(
-            `SELECT p.*, 
+            `SELECT p.id, p.user_id, p.content, p.image_url, p.likes_count, p.comments_count, p.shares_count, p.created_at, p.updated_at, 
                     u.first_name, u.last_name, u.avatar,
                     u.role as user_role,
                     true as is_liked
@@ -138,14 +139,10 @@ export class CommunityModel {
              JOIN community_post_likes l ON p.id = l.post_id
              JOIN users u ON p.user_id = u.id
              WHERE l.user_id = $1
-             ORDER BY l.created_at DESC -- Order by when it was liked? table has no timestamp for likes usually? Wait, let's check schema.
+             ORDER BY p.created_at DESC
              LIMIT $2 OFFSET $3`,
             [userId, limit, offset]
         );
-        // Note: community_post_likes might not have created_at if we didn't add it. 
-        // If not, sorting by p.created_at is fallback.
-        // Checking schema: create table community_post_likes (post_id..., user_id...); No timestamp implicitly.
-        // Assuming no timestamp on like for now, simple join.
         return result.rows.map(row => this.mapRowToPost(row));
     }
 
@@ -276,6 +273,7 @@ export class CommunityModel {
             id: row.id,
             userId: row.user_id,
             content: row.content,
+            imageUrl: row.image_url,
             likesCount: row.likes_count,
             commentsCount: row.comments_count,
             sharesCount: row.shares_count,

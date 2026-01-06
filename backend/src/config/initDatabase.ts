@@ -216,6 +216,17 @@ export const initializeDatabase = async () => {
     await query('CREATE INDEX IF NOT EXISTS idx_jobs_is_active ON jobs(is_active)');
     await query('CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id)');
 
+    // Migration: Add image_url to community_posts if not exists
+    const imageUrlCheck = await query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='community_posts' AND column_name='image_url'
+    `);
+    if (imageUrlCheck.rowCount === 0) {
+      console.log('🚀 Adding image_url column to community_posts table...');
+      await query('ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS image_url TEXT');
+    }
+
     console.log('✅ PostgreSQL database initialized successfully!');
 
   } catch (error) {

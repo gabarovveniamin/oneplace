@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { CommunityController } from '../controllers/communityController';
 import { authenticate, optionalAuth } from '../middleware/auth';
+import { communityUpload } from '../middleware/communityUpload';
 
 const router = Router();
 
@@ -8,8 +9,8 @@ const router = Router();
 router.get('/posts', optionalAuth, CommunityController.getPosts);
 router.get('/tags/trending', optionalAuth, CommunityController.getTrendingTags);
 
-// Protected routes
-router.post('/posts', authenticate, CommunityController.createPost);
+// Protected routes - with image upload support
+router.post('/posts', authenticate, communityUpload.single('image'), CommunityController.createPost);
 router.post('/posts/:id/like', authenticate, CommunityController.toggleLike);
 router.delete('/posts/:id', authenticate, CommunityController.deletePost);
 

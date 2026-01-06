@@ -77,7 +77,13 @@ export class CommunityController {
                 return;
             }
 
-            const post = await CommunityModel.createPost(userId, content);
+            // Handle uploaded image
+            let imageUrl: string | undefined;
+            if (req.file) {
+                imageUrl = `/uploads/community/${req.file.filename}`;
+            }
+
+            const post = await CommunityModel.createPost(userId, content, imageUrl);
             res.status(201).json(post);
         } catch (error) {
             console.error('Create post error:', error);
