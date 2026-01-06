@@ -22,6 +22,7 @@ import notificationRoutes from './routes/notifications';
 import chatRoutes from './routes/chat';
 import friendshipRoutes from './routes/friendships';
 import marketRoutes from './routes/market';
+import communityRoutes from './routes/communityRoutes';
 import { resumeController } from './controllers/resumeController';
 import path from 'path';
 
@@ -101,6 +102,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/friendships', friendshipRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/api/community', communityRoutes);
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));

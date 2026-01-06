@@ -1,5 +1,4 @@
-import { Instagram, MessageCircle, Github, Users } from "lucide-react";
-import { useSocket } from "../../../core/socket/SocketContext";
+import { Instagram, MessageCircle, Github } from "lucide-react";
 
 const XIcon = ({ className }: { className?: string }) => (
   <svg
@@ -13,8 +12,6 @@ const XIcon = ({ className }: { className?: string }) => (
 );
 
 export function Footer() {
-  const { onlineCount } = useSocket();
-
   return (
     <footer className="bg-card border-t border-border mt-auto py-4">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -29,12 +26,6 @@ export function Footer() {
             <p className="text-xs text-muted-foreground hidden lg:block">
               Современная платформа для поиска работы и проектов.
             </p>
-            <div className="flex items-center space-x-1.5 px-2 py-1 bg-green-500/10 rounded-full border border-green-500/20">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-medium text-green-600 dark:text-green-400">
-                {onlineCount} онлайн
-              </span>
-            </div>
             <p className="text-[10px] text-muted-foreground/60">
               © 2024
             </p>

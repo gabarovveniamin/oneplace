@@ -23,6 +23,7 @@ import { Chat } from './core/api/chat';
 import { useJobs } from './features/jobs/hooks/useJobs';
 import { authApiService, UserResponse } from './core/api/auth';
 import { Toaster, toast } from 'sonner';
+import { CommunityPage } from './features/community/components/CommunityPage';
 
 import { useTheme } from './shared/hooks/useTheme';
 import { useAuth } from './shared/hooks/useAuth';
@@ -144,6 +145,7 @@ export default function App() {
               <ServiceHub onSelectService={(service) => {
                 if (service === 'jobs') setCurrentView('home');
                 if (service === 'market') setCurrentView('market');
+                if (service === 'community') setCurrentView('community');
               }} />
             </PageWrapper>
           )}
@@ -158,6 +160,12 @@ export default function App() {
                   setCurrentView('market-item');
                 }}
               />
+            </PageWrapper>
+          )}
+
+          {currentView === 'community' && (
+            <PageWrapper key="community">
+              <CommunityPage onBack={() => setCurrentView('hub')} />
             </PageWrapper>
           )}
 

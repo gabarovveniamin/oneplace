@@ -42,6 +42,7 @@ import { resumeApiService } from '../../../core/api/resume';
 import { ChatWindow } from "../../chat/components/ChatWindow";
 import { Chat } from '../../../core/api/chat';
 import { MarketSection } from './MarketSection';
+import { CommunitySection } from './CommunitySection';
 
 interface ProfileProps {
   onBack: () => void;
@@ -122,7 +123,7 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<'info' | 'applications' | 'favorites' | 'friends' | 'market'>('info');
+  const [activeSection, setActiveSection] = useState<'info' | 'applications' | 'favorites' | 'friends' | 'market' | 'community'>('info');
 
   useEffect(() => {
     loadProfile();
@@ -917,6 +918,19 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
               Профиль
             </button>
 
+            <button
+              onClick={() => setActiveSection('community')}
+              className={cn(
+                "flex items-center gap-2 px-6 py-4 font-medium transition-all border-b-2 whitespace-nowrap",
+                activeSection === 'community'
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+              )}
+            >
+              <MessageSquare className="h-4 w-4" />
+              Сообщество
+            </button>
+
             {isOwnProfile && (
               <>
                 <button
@@ -1371,6 +1385,13 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
               userId={userId || currentUser?.id || ''}
               isOwnProfile={isOwnProfile}
               onPostClick={onPostMarketItem}
+            />
+          )}
+
+          {activeSection === 'community' && user && (
+            <CommunitySection
+              userId={user.id}
+              isOwnProfile={isOwnProfile}
             />
           )}
         </div>
