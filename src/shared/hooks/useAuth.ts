@@ -3,8 +3,6 @@ import { authApiService, UserResponse } from '../../core/api/auth';
 
 export function useAuth() {
     const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
-    const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
-    const [authDialogView, setAuthDialogView] = useState<'login' | 'register'>('login');
 
     useEffect(() => {
         const user = authApiService.getCurrentUser();
@@ -15,7 +13,6 @@ export function useAuth() {
 
     const login = (user: UserResponse) => {
         setCurrentUser(user);
-        setIsAuthDialogOpen(false);
     };
 
     const logout = () => {
@@ -25,26 +22,10 @@ export function useAuth() {
         window.location.reload();
     };
 
-    const openLogin = () => {
-        setAuthDialogView('login');
-        setIsAuthDialogOpen(true);
-    };
-
-    const openRegister = () => {
-        setAuthDialogView('register');
-        setIsAuthDialogOpen(true);
-    };
-
     return {
         currentUser,
         setCurrentUser,
-        isAuthDialogOpen,
-        setIsAuthDialogOpen,
-        authDialogView,
-        setAuthDialogView,
         login,
-        logout,
-        openLogin,
-        openRegister
+        logout
     };
 }

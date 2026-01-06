@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { authApiService } from '../../core/api/auth';
 
-export type ViewType = 'hub' | 'home' | 'job' | 'profile' | 'register' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages' | 'market' | 'market-post' | 'market-item' | 'market-cart';
+export type ViewType = 'hub' | 'home' | 'job' | 'profile' | 'register' | 'login' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages' | 'market' | 'market-post' | 'market-item' | 'market-cart';
 
 export function useViewManager() {
     const [currentView, setCurrentView] = useState<ViewType>('hub');
@@ -12,6 +12,8 @@ export function useViewManager() {
             const hash = window.location.hash;
             if (hash === '#register') {
                 setCurrentView('register');
+            } else if (hash === '#login') {
+                setCurrentView('login');
             } else if (hash === '#post-job') {
                 const user = authApiService.getCurrentUser();
                 if (user && (user.role === 'employer' || user.role === 'admin')) {

@@ -64,12 +64,27 @@ export function MarketItemDetails({ item, onBack, onChatOpen }: MarketItemDetail
     };
 
     const handleContactSeller = () => {
+        if (!authApiService.isAuthenticated()) {
+            toast.error('Пожалуйста, войдите или зарегистрируйтесь, чтобы написать продавцу');
+            return;
+        }
         onChatOpen({
             other_user_id: item.userId,
             first_name: item.userFirstName || 'Продавец',
             last_name: item.userLastName || '',
             avatar: item.userAvatar
         });
+    };
+
+    const handleAddToCart = () => {
+        if (!authApiService.isAuthenticated()) {
+            toast.error('Пожалуйста, войдите или зарегистрируйтесь, чтобы добавить товар в корзину');
+            return;
+        }
+        if (!inCart) {
+            addToCart(item);
+            toast.success('Товар добавлен в корзину');
+        }
     };
 
     return (
@@ -113,7 +128,13 @@ export function MarketItemDetails({ item, onBack, onChatOpen }: MarketItemDetail
 
                             <div className="absolute top-6 right-6 flex gap-3">
                                 <button
-                                    onClick={() => setIsFavorite(!isFavorite)}
+                                    onClick={() => {
+                                        if (!authApiService.isAuthenticated()) {
+                                            toast.error('Пожалуйста, войдите или зарегистрируйтесь, чтобы добавить в избранное');
+                                            return;
+                                        }
+                                        setIsFavorite(!isFavorite);
+                                    }}
                                     className={cn(
                                         "w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center shadow-lg transition-all active:scale-95",
                                         isFavorite ? "bg-red-500 text-white" : "bg-white/20 text-white hover:bg-white/40"
@@ -189,12 +210,7 @@ export function MarketItemDetails({ item, onBack, onChatOpen }: MarketItemDetail
                                 <Button
                                     size="lg"
                                     variant="outline"
-                                    onClick={() => {
-                                        if (!inCart) {
-                                            addToCart(item);
-                                            toast.success('Товар добавлен в корзину');
-                                        }
-                                    }}
+                                    onClick={handleAddToCart}
                                     className={cn(
                                         "h-16 rounded-2xl text-lg font-bold border-2 transition-all",
                                         inCart ? "bg-green-50 text-green-600 border-green-200 hover:bg-green-50" : "hover:bg-accent"
