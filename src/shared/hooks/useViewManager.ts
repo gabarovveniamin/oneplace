@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { authApiService } from '../../core/api/auth';
 
-export type ViewType = 'hub' | 'home' | 'job' | 'profile' | 'register' | 'login' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages' | 'market' | 'market-post' | 'market-item' | 'market-cart' | 'community';
+export type ViewType = 'hub' | 'home' | 'job' | 'profile' | 'register' | 'login' | 'resume-builder' | 'resume-viewer' | 'post-job' | 'admin' | 'messages' | 'market' | 'market-post' | 'market-item' | 'market-cart' | 'community' | 'services' | 'services-post' | 'services-item';
 
 export function useViewManager() {
     const [currentView, setCurrentView] = useState<ViewType>('hub');
