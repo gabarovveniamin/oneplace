@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-    Search,
-    ShoppingBag,
-    ChevronRight,
-    Star,
-    ShieldCheck,
-    Truck,
     ArrowLeft,
-    Filter,
-    Tag,
-    Clock,
     Heart,
-    Plus
+    Plus,
+    Search,
+    ShieldCheck,
+    ShoppingBag,
+    Sparkles,
+    Star,
+    Truck
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../shared/ui/components/button';
@@ -28,9 +25,7 @@ interface Product {
     price: number;
     category: string;
     rating: number;
-    reviews: number;
     image: string;
-    isHot?: boolean;
 }
 
 const CATEGORIES = [
@@ -47,6 +42,17 @@ interface MarketPageProps {
     onPostClick: () => void;
     onItemClick: (item: MarketListing) => void;
 }
+
+const CATEGORY_LABELS = CATEGORIES.reduce<Record<string, string>>((acc, category) => {
+    acc[category.id] = category.title;
+    return acc;
+}, {});
+
+const MARKET_FEATURES = [
+    { icon: ShieldCheck, title: 'Безопасные сделки', desc: 'Защищенные платежи и возврат средств' },
+    { icon: Truck, title: 'Быстрая доставка', desc: 'До двери или в удобные пункты выдачи' },
+    { icon: Star, title: 'Проверенные продавцы', desc: 'Рейтинг, отзывы и прозрачная история' }
+];
 
 export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps) {
     const handlePostClick = () => {
@@ -74,118 +80,157 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
                 setLoading(false);
             }
         };
+
         fetchListings();
     }, []);
 
-    const allProducts = realListings.map(l => ({
-        id: l.id,
-        title: l.title,
-        description: l.description,
-        price: Number(l.price),
-        category: l.category,
-        rating: 5.0,
-        reviews: 0,
-        image: l.images?.[0] || 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?auto=format&fit=crop&q=80&w=800', // Generic product placeholder
-        isHot: false
-    }));
+    const allProducts = useMemo(
+        () =>
+            realListings.map((listing) => ({
+                id: listing.id,
+                title: listing.title,
+                description: listing.description,
+                price: Number(listing.price),
+                category: listing.category,
+                rating: 5.0,
+                image:
+                    listing.images?.[0] ||
+                    'https://images.unsplash.com/photo-1560393464-5c69a73c5770?auto=format&fit=crop&q=80&w=800'
+            })),
+        [realListings]
+    );
 
-    const filteredProducts = allProducts.filter(p => {
-        const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
-        const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.description.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
-    });
+    const filteredProducts = useMemo(
+        () =>
+            allProducts.filter((product) => {
+                const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+                const normalizedQuery = searchQuery.trim().toLowerCase();
+                const matchesSearch =
+                    normalizedQuery.length === 0 ||
+                    product.title.toLowerCase().includes(normalizedQuery) ||
+                    product.description.toLowerCase().includes(normalizedQuery);
+
+                return matchesCategory && matchesSearch;
+            }),
+        [allProducts, selectedCategory, searchQuery]
+    );
+
+    const getCategoryLabel = (category: string) => CATEGORY_LABELS[category] || category;
+    const formatPrice = (price: number) => `${new Intl.NumberFormat('ru-RU').format(price)} ₸`;
 
     return (
         <div className="min-h-screen bg-background">
-            {/* Header / Hero */}
-            <div className="relative h-[450px] overflow-hidden bg-purple-900 flex items-center justify-center pt-32 px-4">
-                <div className="absolute inset-0 z-0">
-                    <img
-                        src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&q=80&w=2000"
-                        alt="Market Hero"
-                        className="w-full h-full object-cover opacity-30 mix-blend-overlay"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-b from-purple-950/50 via-background/20 to-background" />
-                </div>
+            <section className="relative overflow-hidden pt-10 pb-12 sm:pt-12 sm:pb-14">
+                <div className="absolute top-[-180px] right-[-100px] h-[320px] w-[320px] rounded-full bg-primary/15 blur-[90px]" />
+                <div className="absolute bottom-[-180px] left-[-120px] h-[320px] w-[320px] rounded-full bg-primary/10 blur-[90px]" />
 
-                <div className="relative z-10 max-w-4xl w-full text-center space-y-8">
-                    <div className="space-y-4">
-                        <h1 className="text-4xl sm:text-6xl font-bold text-white tracking-tight">
-                            OnePlace <span className="text-purple-400">Маркет</span>
-                        </h1>
-                        <p className="text-lg text-purple-100/80 max-w-2xl mx-auto">
-                            Современный маркетплейс для покупки и продажи товаров и цифровых услуг
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-2xl mx-auto">
-                        <div className="relative flex-1 w-full">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Найти товары, услуги или авторов..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full h-14 pl-12 pr-4 bg-background/80 backdrop-blur-xl border border-white/10 rounded-2xl focus:ring-2 focus:ring-purple-500 focus:outline-none text-foreground shadow-2xl transition-all"
-                            />
-                        </div>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
                         <Button
-                            onClick={handlePostClick}
-                            className="h-14 px-8 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xl shadow-purple-600/20 whitespace-nowrap"
+                            variant="ghost"
+                            onClick={onBack}
+                            className="rounded-full px-4 hover:bg-card/80"
                         >
-                            <Plus className="w-5 h-5 mr-2" />
-                            Продать
+                            <ArrowLeft className="w-4 h-4 mr-2" />
+                            К сервисам
                         </Button>
-                    </div>
-                </div>
-            </div>
 
-            {/* Content Section */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-8 py-12 space-y-12">
-                {/* Stats / Features */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[
-                        { icon: ShieldCheck, title: 'Безопасные сделки', desc: 'Гарантия возврата средств' },
-                        { icon: Truck, title: 'Быстрая доставка', desc: 'До двери или в пункты выдачи' },
-                        { icon: Star, title: 'Проверенные продавцы', desc: 'Только качественные товары' }
-                    ].map((feature, i) => (
-                        <div key={i} className="flex items-center p-6 bg-card rounded-2xl border border-border shadow-sm group hover:border-purple-500/50 transition-colors">
-                            <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
-                                <feature.icon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                        <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/85 px-4 py-2 text-sm text-muted-foreground">
+                            <ShoppingBag className="w-4 h-4 text-primary" />
+                            {loading ? 'Загрузка каталога...' : `${allProducts.length} объявлений`}
+                        </span>
+                    </div>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.45 }}
+                        className="hero-shell rounded-[28px] px-6 py-9 sm:px-10 sm:py-12"
+                    >
+                        <div className="max-w-5xl mx-auto text-center">
+                            <p className="hero-kicker mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2">
+                                <Sparkles className="w-3.5 h-3.5" />
+                                Единый визуальный стиль OnePlace
+                            </p>
+
+                            <h1 className="hero-title text-foreground mb-6 leading-[1.04]">
+                                OnePlace <span className="hero-gradient-text">Маркет</span>
+                            </h1>
+
+                            <p className="text-base sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
+                                Находите товары и услуги в аккуратном каталоге с быстрым поиском и
+                                понятной навигацией.
+                            </p>
+
+                            <div className="flex flex-col sm:flex-row items-stretch gap-4 sm:gap-4 max-w-4xl mx-auto">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                                    <input
+                                        type="text"
+                                        placeholder="Найти товары, услуги или продавцов..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full h-14 pl-12 pr-5 rounded-full border border-border bg-input/90 text-base focus:ring-2 focus:ring-primary/30 focus:border-primary/40 focus:outline-none transition-all"
+                                    />
+                                </div>
+
+                                <Button
+                                    onClick={handlePostClick}
+                                    className="h-14 rounded-full px-7 sm:px-8 font-semibold shadow-md"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Разместить товар
+                                </Button>
                             </div>
-                            <div>
-                                <h3 className="font-semibold text-foreground">{feature.title}</h3>
-                                <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 space-y-12">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+                    {MARKET_FEATURES.map((feature) => (
+                        <div
+                            key={feature.title}
+                            className="card-hover rounded-2xl border border-border bg-card p-6 sm:p-7"
+                        >
+                            <div className="flex items-start gap-4">
+                                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <feature.icon className="w-5 h-5 text-primary" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-base sm:text-lg text-foreground mb-1.5 leading-tight">{feature.title}</h3>
+                                    <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">{feature.desc}</p>
+                                </div>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Categories */}
-                <div className="flex items-center gap-3 overflow-x-auto pb-4 no-scrollbar">
-                    {CATEGORIES.map(cat => (
+                <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto pt-1 pb-3 no-scrollbar">
+                    {CATEGORIES.map((category) => (
                         <button
-                            key={cat.id}
-                            onClick={() => setSelectedCategory(cat.id)}
+                            key={category.id}
+                            onClick={() => setSelectedCategory(category.id)}
                             className={cn(
-                                "px-6 py-2 rounded-full whitespace-nowrap transition-all border",
-                                selectedCategory === cat.id
-                                    ? "bg-purple-600 text-white border-purple-600 shadow-lg shadow-purple-600/20"
-                                    : "bg-card text-muted-foreground border-border hover:border-purple-500/50 hover:text-foreground"
+                                'shrink-0 min-h-11 px-6 sm:px-7 py-2.5 sm:py-3 rounded-2xl whitespace-nowrap border transition-all text-base font-semibold leading-none',
+                                selectedCategory === category.id
+                                    ? 'bg-primary text-primary-foreground border-primary shadow-md shadow-primary/25'
+                                    : 'bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground'
                             )}
                         >
-                            {cat.title}
+                            {category.title}
                         </button>
                     ))}
                 </div>
 
-                {/* Products Grid */}
                 <div className="space-y-8">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold flex items-center">
-                            {selectedCategory === 'all' ? 'Рекомендуемое для вас' : CATEGORIES.find(c => c.id === selectedCategory)?.title}
-                            <span className="ml-3 text-sm font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    <div className="flex items-center justify-between gap-4">
+                        <h2 className="text-3xl sm:text-4xl font-bold flex items-center leading-tight">
+                            {selectedCategory === 'all'
+                                ? 'Рекомендуемое для вас'
+                                : CATEGORIES.find((category) => category.id === selectedCategory)?.title}
+                            <span className="ml-3 text-sm font-semibold text-muted-foreground bg-card border border-border px-3 py-1.5 rounded-full">
                                 {loading ? '...' : filteredProducts.length}
                             </span>
                         </h2>
@@ -213,18 +258,18 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
                             }}
                             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
                         >
-                            {filteredProducts.map(product => (
+                            {filteredProducts.map((product) => (
                                 <motion.div
                                     key={product.id}
                                     variants={{
-                                        hidden: { opacity: 0, y: 30 },
-                                        show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+                                        hidden: { opacity: 0, y: 24 },
+                                        show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } }
                                     }}
                                     onClick={() => {
-                                        const listing = realListings.find(l => l.id === product.id);
+                                        const listing = realListings.find((l) => l.id === product.id);
                                         if (listing) onItemClick(listing);
                                     }}
-                                    className="group bg-card rounded-3xl border border-border overflow-hidden hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer"
+                                    className="group card-hover bg-card rounded-3xl border border-border overflow-hidden cursor-pointer"
                                 >
                                     <div className="relative aspect-[4/3] overflow-hidden">
                                         <img
@@ -233,41 +278,46 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
                                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                         />
                                         <div className="absolute top-4 left-4 flex gap-2">
-                                            {product.isHot && (
-                                                <span className="px-3 py-1 bg-red-500 text-white text-[10px] font-bold rounded-full uppercase flex items-center">
-                                                    🔥 Хит
-                                                </span>
-                                            )}
-                                            <span className="px-3 py-1 bg-white/10 backdrop-blur-md text-white text-[10px] font-bold rounded-full uppercase">
-                                                {product.category}
+                                            <span className="px-3 py-1 bg-black/35 backdrop-blur-md text-white text-[10px] font-bold rounded-full uppercase">
+                                                {getCategoryLabel(product.category)}
                                             </span>
                                         </div>
-                                        <button className="absolute top-4 right-4 w-9 h-9 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white hover:text-red-500 transition-colors">
+                                        <button
+                                            className="absolute top-4 right-4 w-9 h-9 bg-black/35 backdrop-blur-md rounded-full flex items-center justify-center text-white hover:bg-white/85 hover:text-red-500 transition-colors"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             <Heart className="w-5 h-5" />
                                         </button>
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                                            <Button className="w-full bg-white text-black hover:bg-white/90 font-bold">
-                                                Посмотреть
+                                            <Button
+                                                className="w-full rounded-xl bg-white/95 text-slate-900 hover:bg-white font-semibold"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const listing = realListings.find((l) => l.id === product.id);
+                                                    if (listing) onItemClick(listing);
+                                                }}
+                                            >
+                                                Открыть карточку
                                             </Button>
                                         </div>
                                     </div>
                                     <div className="p-6 space-y-3">
                                         <div className="flex items-start justify-between">
-                                            <h3 className="font-bold text-foreground line-clamp-1 group-hover:text-purple-600 transition-colors">
+                                            <h3 className="font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                                                 {product.title}
                                             </h3>
                                         </div>
-                                        <p className="text-sm text-muted-foreground line-clamp-2 min-h-[40px]">
+                                        <p className="text-sm text-muted-foreground line-clamp-2 min-h-[44px] leading-relaxed">
                                             {product.description}
                                         </p>
                                         <div className="flex items-center justify-between pt-2">
                                             <div className="space-y-1">
                                                 <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Цена</div>
                                                 <div className="text-xl font-black text-foreground">
-                                                    {product.price.toLocaleString()} ₸
+                                                    {formatPrice(product.price)}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center bg-muted/50 px-2 py-1 rounded-lg">
+                                            <div className="flex items-center bg-muted/60 px-2.5 py-1 rounded-lg">
                                                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500 mr-1" />
                                                 <span className="text-sm font-bold">{product.rating}</span>
                                             </div>
@@ -284,7 +334,6 @@ export function MarketPage({ onBack, onPostClick, onItemClick }: MarketPageProps
                         </div>
                     )}
                 </div>
-
             </div>
         </div>
     );

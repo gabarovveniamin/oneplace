@@ -13,61 +13,55 @@ const XIcon = ({ className }: { className?: string }) => (
 
 export function Footer() {
   return (
-    <footer className="bg-card border-t border-border mt-auto py-4">
+    <footer className="footer-shell mt-auto py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-          {/* Logo & Description (Minimal) */}
+        <div className="rounded-xl border border-border bg-card px-4 py-3 sm:px-6 sm:py-3 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="flex items-center space-x-2">
-              <img src="/Log.png" alt="OnePlace" className="h-6 w-6 object-contain opacity-70" />
-              <span className="text-sm font-bold text-foreground opacity-80">OnePlace</span>
+            <img src="/Log.png" alt="OnePlace" className="h-8 w-8 object-cover" />
+            <div>
+              <p className="text-sm font-semibold tracking-tight">OnePlace</p>
+              <p className="text-xs text-muted-foreground">Work. Market. Community.</p>
             </div>
-            <div className="hidden sm:block w-px h-4 bg-border" />
-            <p className="text-xs text-muted-foreground hidden lg:block">
-              Современная платформа для поиска работы и проектов.
-            </p>
-            <p className="text-[10px] text-muted-foreground/60">
-              © 2024
-            </p>
+            <div className="hidden sm:block w-px h-6 bg-border" />
+            <p className="hidden sm:block text-xs text-muted-foreground">© 2026 OnePlace</p>
           </div>
 
-          {/* Social Icons (Larger and centered) */}
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-2">
             <a
               href="https://x.com/venom_simbiote"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-all duration-300 hover:scale-125"
+              className="h-9 w-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 flex items-center justify-center"
               aria-label="X"
             >
-              <XIcon className="h-6 w-6" />
+              <XIcon className="h-4 w-4" />
             </a>
             <a
               href="https://www.instagram.com/gabarovveniamin/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-pink-600 transition-all duration-300 hover:scale-125"
+              className="h-9 w-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 flex items-center justify-center"
               aria-label="Instagram"
             >
-              <Instagram className="h-6 w-6" />
+              <Instagram className="h-4 w-4" />
             </a>
             <a
               href="https://t.me/gabarovveniamin"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-blue-500 transition-all duration-300 hover:scale-125"
+              className="h-9 w-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 flex items-center justify-center"
               aria-label="Telegram"
             >
-              <MessageCircle className="h-6 w-6" />
+              <MessageCircle className="h-4 w-4" />
             </a>
             <a
               href="https://github.com/gabarovveniamin"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-all duration-300 hover:scale-125"
+              className="h-9 w-9 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-accent transition-all duration-200 flex items-center justify-center"
               aria-label="GitHub"
             >
-              <Github className="h-6 w-6" />
+              <Github className="h-4 w-4" />
             </a>
           </div>
         </div>

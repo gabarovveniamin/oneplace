@@ -17,7 +17,11 @@ import { MarketPage } from './features/market/components/MarketPage';
 import { PostMarketItem } from './features/market/components/PostMarketItem';
 import { MarketItemDetails } from './features/market/components/MarketItemDetails';
 import { CartPage } from './features/market/components/CartPage';
+import { ServicesPage } from './features/services/components/ServicesPage';
+import { ServiceDetails } from './features/services/components/ServiceDetails';
+import { PostServicePage } from './features/services/components/PostServicePage';
 import { MarketListing, marketApiService } from './core/api/market';
+import { ServiceListing } from './core/api/services';
 import { Job, SearchFilters } from './shared/types/job';
 import { Chat } from './core/api/chat';
 import { useJobs } from './features/jobs/hooks/useJobs';
@@ -46,6 +50,7 @@ export default function App() {
 
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedMarketItem, setSelectedMarketItem] = useState<MarketListing | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceListing | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
 
@@ -104,8 +109,21 @@ export default function App() {
     setSearchValue('');
   };
 
+  const openChatWithUser = (user: { other_user_id: string; first_name: string; last_name: string; avatar?: string }) => {
+    setActiveChat({
+      id: '',
+      other_user_id: user.other_user_id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      avatar: user.avatar,
+      content: '',
+      created_at: new Date().toISOString(),
+      is_read: true
+    } as any);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
+    <div className="app-shell min-h-screen bg-background flex flex-col overflow-x-hidden">
       <Header
         isDarkMode={isDarkMode}
         onThemeToggle={toggleTheme}
@@ -146,6 +164,7 @@ export default function App() {
                 if (service === 'jobs') setCurrentView('home');
                 if (service === 'market') setCurrentView('market');
                 if (service === 'community') setCurrentView('community');
+                if (service === 'services') setCurrentView('services');
               }} />
             </PageWrapper>
           )}
@@ -163,6 +182,19 @@ export default function App() {
             </PageWrapper>
           )}
 
+          {currentView === 'services' && (
+            <PageWrapper key="services">
+              <ServicesPage
+                onBack={() => setCurrentView('hub')}
+                onPostClick={() => setCurrentView('services-post')}
+                onItemClick={(item) => {
+                  setSelectedService(item);
+                  setCurrentView('services-item');
+                }}
+              />
+            </PageWrapper>
+          )}
+
           {currentView === 'community' && (
             <PageWrapper key="community">
               <CommunityPage onBack={() => setCurrentView('hub')} />
@@ -174,18 +206,17 @@ export default function App() {
               <MarketItemDetails
                 item={selectedMarketItem}
                 onBack={() => setCurrentView('market')}
-                onChatOpen={(user) => {
-                  setActiveChat({
-                    id: '',
-                    other_user_id: user.other_user_id,
-                    first_name: user.first_name,
-                    last_name: user.last_name,
-                    avatar: user.avatar,
-                    content: '',
-                    created_at: new Date().toISOString(),
-                    is_read: true
-                  } as any);
-                }}
+                onChatOpen={openChatWithUser}
+              />
+            </PageWrapper>
+          )}
+
+          {currentView === 'services-item' && selectedService && (
+            <PageWrapper key="services-item">
+              <ServiceDetails
+                service={selectedService}
+                onBack={() => setCurrentView('services')}
+                onChatOpen={openChatWithUser}
               />
             </PageWrapper>
           )}
@@ -195,6 +226,15 @@ export default function App() {
               <PostMarketItem
                 onBack={() => setCurrentView('market')}
                 onComplete={() => setCurrentView('market')}
+              />
+            </PageWrapper>
+          )}
+
+          {currentView === 'services-post' && (
+            <PageWrapper key="services-post">
+              <PostServicePage
+                onBack={() => setCurrentView('services')}
+                onComplete={() => setCurrentView('services')}
               />
             </PageWrapper>
           )}
@@ -332,7 +372,6 @@ export default function App() {
       </main>
 
       {currentView !== 'messages' && <Footer />}
-
 
       <Toaster position="top-center" richColors />
     </div>
