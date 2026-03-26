@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "./button";
 import { Input } from "./input";
-import { Search, User, Filter, X, ChevronDown, LogOut, MessageSquare, MapPin, Bell, ShoppingCart } from "lucide-react";
+import { Search, Filter, X, LogOut, MessageSquare, MapPin, ShoppingCart, Menu } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { SearchFilters } from "../../../shared/types/job";
 import { UserResponse } from "../../../core/api/auth";
 import { Card, CardContent } from "./card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select";
 import { NotificationsPopover } from '../../../features/notifications/components/NotificationsPopover';
-import { MessengerModal } from '../../../features/chat/components/MessengerModal';
 import { useCart } from '../../../features/market/hooks/useCart';
 
 interface HeaderProps {
@@ -51,13 +50,25 @@ export function Header({
   showSearch = true
 }: HeaderProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [filters, setFilters] = useState<SearchFilters>({});
   const filterRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const { totalItems } = useCart();
 
-  const toggleAdvancedSearch = () => {
-    setIsFilterOpen(prev => !prev);
-  };
+  // Track mobile breakpoint
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const toggleAdvancedSearch = () => setIsFilterOpen(prev => !prev);
 
   const handleFilterChange = (key: keyof SearchFilters, value: string | number) => {
     const newFilters = { ...filters, [key]: value };
@@ -70,22 +81,27 @@ export function Header({
     onClearSearch?.();
   };
 
-  // Закрытие меню при клике вне его
+  // Close filter on outside click
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setIsFilterOpen(false);
       }
     };
-
-    if (isFilterOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    if (isFilterOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [isFilterOpen]);
+
+  // Close mobile menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    if (isMobileMenuOpen) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isMobileMenuOpen]);
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSearchValueChange?.(e.target.value);
@@ -93,177 +109,248 @@ export function Header({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchValue.trim()) {
-      onSearch?.({ keyword: searchValue.trim() });
-    }
+    if (searchValue.trim()) onSearch?.({ keyword: searchValue.trim() });
   };
+
+  const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.email === 'admin@oneplace.com');
 
   return (
     <div className="relative">
-      <header className="header-adaptive shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center cursor-pointer space-x-2 flex-shrink-0" onClick={onLogoClick}>
-              <MapPin className="h-6 w-6 text-blue-500" />
-              <div className="flex text-xl font-bold">
-                <span className="text-blue-500">One</span>
-                <span className="text-green-500">Place</span>
-              </div>
+      <header className="header-adaptive sticky top-0 z-50" style={{ boxShadow: '0 2px 20px rgba(0,0,0,0.08)' }}>
+        <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', height: '60px', gap: '8px' }}>
+
+            {/* ── Logo ── */}
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flexShrink: 0 }}
+              onClick={onLogoClick}
+            >
+              <MapPin style={{ width: 20, height: 20, color: '#3b82f6' }} />
+              <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.02em' }}>
+                <span style={{ color: '#3b82f6' }}>One</span>
+                <span style={{ color: '#22c55e' }}>Place</span>
+              </span>
             </div>
 
-            {/* Search Bar & Filter */}
+            {/* ── Search ── */}
             {showSearch ? (
-              <div className="flex-1 min-w-[150px] max-w-2xl mx-2 sm:mx-6">
-                <div className="flex items-center space-x-2">
-                  <form onSubmit={handleSearchSubmit} className="relative flex-1 min-w-0">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 icon-adaptive h-4 w-4" />
-                    <Input
-                      type="text"
-                      placeholder="Поиск..."
-                      className="pl-10 pr-10 search-input-adaptive border-0 rounded-lg text-sm h-10 w-full"
-                      value={searchValue}
-                      onChange={handleSearchInputChange}
-                    />
-                    {searchValue && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onSearchValueChange?.('')}
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 hover-adaptive rounded-full flex items-center justify-center icon-adaptive"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </form>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleAdvancedSearch}
-                    className="h-10 w-10 p-0 hover-adaptive rounded-lg relative flex-shrink-0 hidden md:flex items-center justify-center"
-                  >
-                    <Filter className="h-5 w-5 icon-adaptive" />
-                    {activeFiltersCount > 0 && (
-                      <span className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
-                        {activeFiltersCount}
-                      </span>
-                    )}
-                  </Button>
-                </div>
+              <div style={{ flex: 1, minWidth: 0, maxWidth: '480px', margin: '0 8px' }}>
+                <form onSubmit={handleSearchSubmit} style={{ position: 'relative', width: '100%' }}>
+                  <Search className="icon-adaptive" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', width: 16, height: 16 }} />
+                  <Input
+                    type="text"
+                    placeholder="Поиск..."
+                    className="search-input-adaptive"
+                    style={{ paddingLeft: 36, paddingRight: searchValue ? 32 : 12, height: 38, width: '100%', borderRadius: 999, border: 'none', fontSize: 14 }}
+                    value={searchValue}
+                    onChange={handleSearchInputChange}
+                  />
+                  {searchValue && (
+                    <button
+                      type="button"
+                      onClick={() => onSearchValueChange?.('')}
+                      style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
+                    >
+                      <X className="icon-adaptive" style={{ width: 14, height: 14 }} />
+                    </button>
+                  )}
+                </form>
               </div>
             ) : (
-              <div className="flex-1" />
+              <div style={{ flex: 1 }} />
             )}
 
-            {/* Right Side Navigation */}
-            <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0">
-              <div className="hidden lg:block">
+            {/* ── Desktop nav ── */}
+            {!isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                {/* Theme toggle */}
                 <ThemeToggle isDark={isDarkMode} onToggle={onThemeToggle} />
-              </div>
 
+                {currentUser ? (
+                  <>
+                    {/* Filter button (only on search page) */}
+                    {showSearch && (
+                      <button
+                        onClick={toggleAdvancedSearch}
+                        style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer' }}
+                        className="hover-adaptive"
+                      >
+                        <Filter className="icon-adaptive" style={{ width: 16, height: 16 }} />
+                        {activeFiltersCount > 0 && (
+                          <span style={{ position: 'absolute', top: 2, right: 2, background: '#2563eb', color: '#fff', fontSize: 10, borderRadius: 999, width: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {activeFiltersCount}
+                          </span>
+                        )}
+                      </button>
+                    )}
 
+                    <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
 
-              {currentUser ? (
-                <div className="flex items-center gap-1 sm:gap-3">
-                  <div className="flex items-center gap-1 sm:gap-2">
                     <NotificationsPopover onNavigateToProfile={onProfileClick} />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="relative hover-adaptive rounded-lg flex-shrink-0"
+
+                    <button
                       onClick={onMessagesClick}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer' }}
+                      className="hover-adaptive"
                     >
-                      <MessageSquare className="h-5 w-5 icon-adaptive" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="relative hover-adaptive rounded-lg flex-shrink-0"
+                      <MessageSquare className="icon-adaptive" style={{ width: 18, height: 18 }} />
+                    </button>
+
+                    <button
                       onClick={onCartClick}
+                      style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer' }}
+                      className="hover-adaptive"
                     >
-                      <ShoppingCart className="h-5 w-5 icon-adaptive" />
+                      <ShoppingCart className="icon-adaptive" style={{ width: 18, height: 18 }} />
                       {totalItems > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                        <span style={{ position: 'absolute', top: -2, right: -2, background: '#ef4444', color: '#fff', fontSize: 10, borderRadius: 999, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                           {totalItems}
                         </span>
                       )}
-                    </Button>
-                  </div>
+                    </button>
 
-                  <div className="hidden xl:block h-6 w-[1px] vertical-divider-adaptive" />
+                    <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
 
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <span className="hidden 2xl:block text-sm font-medium text-adaptive whitespace-nowrap">
-                      {currentUser.firstName} {currentUser.lastName}
-                    </span>
-
-                    <Button
-                      variant="ghost"
-                      className="hidden lg:flex text-sm font-medium text-adaptive hover-adaptive px-2"
+                    <button
                       onClick={onProfileClick}
+                      style={{ display: 'flex', alignItems: 'center', padding: '0 12px', height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}
+                      className="hover-adaptive text-adaptive"
                     >
                       Профиль
-                    </Button>
+                    </button>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="hover-adaptive h-9 w-9 rounded-lg"
+                    <button
                       onClick={onLogout}
                       title="Выйти"
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer' }}
+                      className="hover-adaptive"
                     >
-                      <LogOut className="h-5 w-5 icon-adaptive" />
-                    </Button>
-                  </div>
+                      <LogOut className="icon-adaptive" style={{ width: 16, height: 16 }} />
+                    </button>
 
-                  {(currentUser.role === 'admin' || currentUser.email === 'admin@oneplace.com') && (
-                    <Button
-                      variant="ghost"
-                      className="hidden md:flex bg-red-600/10 text-red-500 hover:bg-red-600/20 text-xs font-bold px-3 h-8 rounded-lg transition-all"
-                      onClick={() => onAdminClick?.()}
+                    {isAdmin && (
+                      <button
+                        onClick={() => onAdminClick?.()}
+                        style={{ padding: '0 10px', height: 32, borderRadius: 8, background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                      >
+                        Админ
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={onLoginClick}
+                      style={{ padding: '0 14px', height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}
+                      className="hover-adaptive text-adaptive"
                     >
-                      Админ
-                    </Button>
+                      Войти
+                    </button>
+                    <button
+                      onClick={onRegisterClick}
+                      style={{ padding: '0 16px', height: 36, borderRadius: 999, background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
+                    >
+                      Регистрация
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── Mobile right side ── */}
+            {isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                {currentUser && (
+                  <>
+                    <NotificationsPopover onNavigateToProfile={onProfileClick} />
+                    <button
+                      onClick={onCartClick}
+                      style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer' }}
+                      className="hover-adaptive"
+                    >
+                      <ShoppingCart className="icon-adaptive" style={{ width: 18, height: 18 }} />
+                      {totalItems > 0 && (
+                        <span style={{ position: 'absolute', top: -2, right: -2, background: '#ef4444', color: '#fff', fontSize: 10, borderRadius: 999, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
+                          {totalItems}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
+
+                {/* Theme toggle — compact on mobile */}
+                <ThemeToggle isDark={isDarkMode} onToggle={onThemeToggle} />
+
+                {/* Hamburger */}
+                <button
+                  onClick={() => setIsMobileMenuOpen(prev => !prev)}
+                  aria-label="Открыть меню"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 999, background: 'none', border: 'none', cursor: 'pointer' }}
+                  className="hover-adaptive"
+                >
+                  {isMobileMenuOpen
+                    ? <X className="icon-adaptive" style={{ width: 20, height: 20 }} />
+                    : <Menu className="icon-adaptive" style={{ width: 20, height: 20 }} />}
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* ── Mobile dropdown menu ── */}
+        {isMobile && isMobileMenuOpen && (
+          <div
+            ref={mobileMenuRef}
+            style={{
+              borderTop: '1px solid var(--border)',
+              background: 'var(--glass-bg)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }}
+          >
+            <div style={{ maxWidth: 1280, margin: '0 auto', padding: '10px 16px 14px' }}>
+              {currentUser ? (
+                <>
+                  <div style={{ fontSize: 12, color: 'var(--muted-foreground)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    {currentUser.firstName} {currentUser.lastName}
+                  </div>
+                  <MobileMenuItem icon="👤" label="Профиль" onClick={() => { onProfileClick?.(); setIsMobileMenuOpen(false); }} />
+                  <MobileMenuItem icon={<MessageSquare style={{ width: 16, height: 16 }} />} label="Сообщения" onClick={() => { onMessagesClick?.(); setIsMobileMenuOpen(false); }} />
+                  {isAdmin && (
+                    <MobileMenuItem icon="🛡️" label="Панель администратора" onClick={() => { onAdminClick?.(); setIsMobileMenuOpen(false); }} style={{ color: '#ef4444' }} />
                   )}
-                </div>
+                  <div style={{ height: 1, background: 'var(--border)', margin: '6px 0' }} />
+                  <MobileMenuItem icon={<LogOut style={{ width: 16, height: 16 }} />} label="Выйти" onClick={() => { onLogout?.(); setIsMobileMenuOpen(false); }} style={{ color: '#ef4444' }} />
+                </>
               ) : (
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    className="text-sm font-medium text-adaptive hover-adaptive"
-                    onClick={onLoginClick}
-                  >
-                    Войти
-                  </Button>
-                  <Button
-                    className="bg-blue-600 hover:bg-blue-700 text-white text-sm h-9 rounded-md px-4 hidden sm:block"
-                    onClick={onRegisterClick}
+                <>
+                  <MobileMenuItem icon="🔑" label="Войти" onClick={() => { onLoginClick?.(); setIsMobileMenuOpen(false); }} />
+                  <button
+                    onClick={() => { onRegisterClick?.(); setIsMobileMenuOpen(false); }}
+                    style={{ width: '100%', marginTop: 6, padding: '10px', borderRadius: 12, background: '#2563eb', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600 }}
                   >
                     Регистрация
-                  </Button>
-                </div>
+                  </button>
+                </>
               )}
             </div>
           </div>
-        </div>
+        )}
       </header>
 
-      {/* Filter Dropdown */}
+      {/* ── Filter Dropdown ── */}
       {isFilterOpen && (
-        <div ref={filterRef} className="absolute top-16 left-0 right-0 z-50 bg-card border border-border shadow-lg">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div ref={filterRef} style={{ position: 'absolute', top: 60, left: 0, right: 0, zIndex: 50, background: 'var(--card)', borderBottom: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto', padding: '16px' }}>
             <Card>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <CardContent className="p-4 sm:p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                   {/* Регион */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Регион</label>
                     <Select onValueChange={(value: string) => handleFilterChange('region', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите регион" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Выберите регион" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="almaty">Алматы</SelectItem>
                         <SelectItem value="nur-sultan">Нур-Султан</SelectItem>
@@ -284,13 +371,11 @@ export function Header({
                     </Select>
                   </div>
 
-                  {/* Опыт работы */}
+                  {/* Опыт */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">Опыт работы</label>
                     <Select onValueChange={(value: string) => handleFilterChange('experience', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите опыт" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Выберите опыт" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="no-experience">Без опыта</SelectItem>
                         <SelectItem value="less-than-1">Менее 1 года</SelectItem>
@@ -306,9 +391,7 @@ export function Header({
                   <div>
                     <label className="text-sm font-medium mb-2 block">Тип занятости</label>
                     <Select onValueChange={(value: string) => handleFilterChange('employmentType', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите тип" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Выберите тип" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="full-time">Полная занятость</SelectItem>
                         <SelectItem value="part-time">Частичная занятость</SelectItem>
@@ -324,9 +407,7 @@ export function Header({
                   <div>
                     <label className="text-sm font-medium mb-2 block">Образование</label>
                     <Select onValueChange={(value: string) => handleFilterChange('education', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите образование" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Выберите образование" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="no-education">Без образования</SelectItem>
                         <SelectItem value="secondary">Среднее</SelectItem>
@@ -342,9 +423,7 @@ export function Header({
                   <div>
                     <label className="text-sm font-medium mb-2 block">Зарплата от</label>
                     <Select onValueChange={(value: string) => handleFilterChange('salaryFrom', parseInt(value))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите зарплату" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Выберите зарплату" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="50000">50 000 ₸</SelectItem>
                         <SelectItem value="100000">100 000 ₸</SelectItem>
@@ -364,9 +443,7 @@ export function Header({
                   <div>
                     <label className="text-sm font-medium mb-2 block">Специализация</label>
                     <Select onValueChange={(value: string) => handleFilterChange('specialization', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите специализацию" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Выберите специализацию" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="it">IT, интернет, телеком</SelectItem>
                         <SelectItem value="finance">Банки, инвестиции, лизинг</SelectItem>
@@ -387,13 +464,11 @@ export function Header({
                     </Select>
                   </div>
 
-                  {/* График работы */}
+                  {/* График */}
                   <div>
                     <label className="text-sm font-medium mb-2 block">График работы</label>
                     <Select onValueChange={(value: string) => handleFilterChange('schedule', value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите график" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Выберите график" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="full-day">Полный день</SelectItem>
                         <SelectItem value="shift">Сменный график</SelectItem>
@@ -406,19 +481,16 @@ export function Header({
                   </div>
                 </div>
 
-                {/* Кнопки действий */}
-                <div className="flex justify-between items-center mt-6 pt-4 border-t border-border">
-                  <div className="text-sm text-muted-foreground">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <span className="text-sm text-muted-foreground">
                     {Object.keys(filters).length > 0 && `Выбрано фильтров: ${Object.keys(filters).length}`}
-                  </div>
-                  <div className="flex space-x-3">
+                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
                     <Button variant="outline" onClick={handleClearFilters}>
-                      <X className="h-4 w-4 mr-2" />
-                      Очистить все
+                      <X className="h-4 w-4 mr-2" /> Очистить все
                     </Button>
                     <Button onClick={() => setIsFilterOpen(false)}>
-                      <Search className="h-4 w-4 mr-2" />
-                      Показать результаты
+                      <Search className="h-4 w-4 mr-2" /> Показать результаты
                     </Button>
                   </div>
                 </div>
@@ -428,5 +500,44 @@ export function Header({
         </div>
       )}
     </div>
+  );
+}
+
+// Helper component for mobile menu items
+function MobileMenuItem({
+  icon,
+  label,
+  onClick,
+  style,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        width: '100%',
+        padding: '10px 12px',
+        borderRadius: 10,
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: 14,
+        fontWeight: 500,
+        textAlign: 'left',
+        color: 'var(--foreground)',
+        ...style,
+      }}
+      className="hover-adaptive"
+    >
+      <span style={{ display: 'flex', alignItems: 'center' }}>{icon}</span>
+      {label}
+    </button>
   );
 }
