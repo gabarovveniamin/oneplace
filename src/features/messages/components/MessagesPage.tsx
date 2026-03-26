@@ -40,6 +40,8 @@ export function MessagesPage({ isDarkMode }: MessagesPageProps) {
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    // Mobile: true = show chat panel, false = show sidebar list
+    const [mobileShowChat, setMobileShowChat] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
     const currentUser = authApiService.getCurrentUser();
@@ -159,6 +161,7 @@ export function MessagesPage({ isDarkMode }: MessagesPageProps) {
     const loadMessages = useCallback(async (chat: Chat) => {
         try {
             setSelectedChat(chat);
+            setMobileShowChat(true); // switch to chat panel on mobile
             const data = await chatApiService.getMessages(chat.other_user_id);
             setMessages(data);
 
@@ -427,12 +430,13 @@ export function MessagesPage({ isDarkMode }: MessagesPageProps) {
                 color: theme.text,
             }}
         >
-            {/* LEFT SIDEBAR - FIXED WIDTH */}
+            {/* LEFT SIDEBAR */}
             <div
-                className="flex-shrink-0 flex flex-col border-r"
+                className={`messages-sidebar-panel flex-shrink-0 flex flex-col border-r ${
+                    mobileShowChat ? 'messages-sidebar-mobile-hidden' : ''
+                }`}
                 style={{
-                    width: '300px',
-                    flex: '0 0 300px',
+                    width: '100%',
                     backgroundColor: theme.sidebarBg,
                     borderColor: theme.sidebarBorder
                 }}
@@ -541,11 +545,14 @@ export function MessagesPage({ isDarkMode }: MessagesPageProps) {
                 </ScrollArea>
             </div>
 
-            {/* RIGHT CHAT AREA - FLEXIBLE */}
+            {/* RIGHT CHAT AREA */}
             <div
-                className="flex flex-col"
+                className={`flex flex-col ${
+                    !mobileShowChat ? 'messages-chat-mobile-hidden' : ''
+                }`}
                 style={{
                     flex: '1',
+                    minWidth: 0,
                     backgroundColor: theme.chatBgColor,
                     backgroundImage: isDarkMode ? 'none' : 'url("https://web.telegram.org/img/bg_0.png")',
                     backgroundSize: 'cover',
@@ -554,10 +561,19 @@ export function MessagesPage({ isDarkMode }: MessagesPageProps) {
                 {selectedChat ? (
                     <>
                         {/* Chat Header */}
-                        <div className="h-[60px] px-4 md:px-6 flex items-center justify-between shadow-sm z-20 flex-shrink-0"
+                        <div className="h-[60px] px-3 md:px-6 flex items-center justify-between shadow-sm z-20 flex-shrink-0"
                             style={{ backgroundColor: theme.headerBg, borderBottom: `1px solid ${theme.headerBorder}` }}>
-                            <div className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
-                                <div className="flex flex-col min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                {/* Back button — mobile only */}
+                                <button
+                                    className="chat-mobile-back h-9 w-9 rounded-full items-center justify-center flex-shrink-0 transition-colors"
+                                    style={{ color: theme.subText }}
+                                    onClick={() => setMobileShowChat(false)}
+                                    aria-label="Назад"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </button>
+                                <div className="flex flex-col min-w-0 flex-1 cursor-pointer">
                                     <h2 className="text-[16px] font-semibold leading-tight truncate" style={{ color: theme.text }}>
                                         {selectedChat.first_name} {selectedChat.last_name}
                                     </h2>
@@ -570,9 +586,9 @@ export function MessagesPage({ isDarkMode }: MessagesPageProps) {
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4 md:gap-6 flex-shrink-0">
+                            <div className="flex items-center gap-3 md:gap-6 flex-shrink-0">
                                 <Search className="h-5 w-5 md:h-6 md:w-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: theme.subText }} />
-                                <Phone className="h-5 w-5 md:h-6 md:w-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: theme.subText }} />
+                                <Phone className="hidden sm:block h-5 w-5 md:h-6 md:w-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: theme.subText }} />
                                 <MoreVertical className="h-5 w-5 md:h-6 md:w-6 cursor-pointer opacity-70 hover:opacity-100 transition-opacity" style={{ color: theme.subText }} />
                             </div>
                         </div>

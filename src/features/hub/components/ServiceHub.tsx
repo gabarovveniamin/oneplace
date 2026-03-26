@@ -53,26 +53,26 @@ export function ServiceHub({ onSelectService }: ServiceHubProps) {
 
   return (
     <div className="min-h-screen text-foreground flex flex-col items-center justify-center p-4 sm:p-6">
-      <div className="max-w-7xl w-full space-y-8">
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-border bg-card shadow-sm">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold text-muted-foreground">Единая экосистема сервисов</span>
+      <div className="max-w-7xl w-full space-y-6 sm:space-y-8">
+        <div className="text-center space-y-3 sm:space-y-4">
+          <div className="inline-flex items-center justify-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-border bg-card shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+            <span className="text-xs sm:text-sm font-semibold text-muted-foreground">Единая экосистема сервисов</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-foreground">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
             Выберите направление
             <br />
             <span className="hero-gradient-text">и начните за минуту</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
             Полный редизайн платформы с чистой визуальной иерархией,
             крупными точками входа и минималистичной эстетикой.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="hub-grid grid gap-4 sm:gap-5 lg:gap-6">
           {services.map((service) => (
             <div
               key={service.id}

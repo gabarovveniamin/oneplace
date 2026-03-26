@@ -53,6 +53,10 @@
   --glass-border: rgba(255, 255, 255, 0.78);
   --shadow-soft: 0 26px 56px rgba(19, 31, 56, 0.12);
   --shadow-card: 0 16px 34px rgba(25, 37, 62, 0.08);
+
+  /* Responsive */
+  --page-padding-x: clamp(1rem, 4vw, 2rem);
+  --header-height: 64px;
 }
 
 .dark {
@@ -104,6 +108,8 @@
 
 html {
   font-size: var(--font-size);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
@@ -124,6 +130,7 @@ body {
     radial-gradient(44rem 44rem at 104% 12%, var(--ambient-b), transparent 66%),
     radial-gradient(20rem 20rem at 50% 102%, var(--ambient-c), transparent 75%);
   background-attachment: fixed;
+  overflow-x: hidden;
 }
 
 h1,
@@ -134,6 +141,7 @@ h4 {
   font-family: "Plus Jakarta Sans", "Manrope", sans-serif;
 }
 
+/* ─── App shell ─────────────────────────────────────────────── */
 .app-shell {
   position: relative;
   isolation: isolate;
@@ -165,6 +173,7 @@ h4 {
   background: var(--ambient-b);
 }
 
+/* ─── Header ────────────────────────────────────────────────── */
 .header-adaptive {
   background: var(--glass-bg);
   border-bottom: 1px solid rgba(255, 255, 255, 0.34);
@@ -173,6 +182,7 @@ h4 {
   -webkit-backdrop-filter: blur(20px) saturate(145%);
 }
 
+/* ─── Search ────────────────────────────────────────────────── */
 .search-input-adaptive {
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -191,6 +201,7 @@ h4 {
   color: var(--muted-foreground);
 }
 
+/* ─── Icon / Text helpers ───────────────────────────────────── */
 .icon-adaptive {
   color: color-mix(in oklab, var(--foreground) 65%, transparent);
   transition: color 0.2s ease;
@@ -214,6 +225,7 @@ h4 {
   background: var(--border);
 }
 
+/* ─── Hero ──────────────────────────────────────────────────── */
 .hero-shell {
   border: 1px solid color-mix(in oklab, var(--glass-border) 78%, var(--border));
   background: linear-gradient(144deg, color-mix(in oklab, var(--card) 90%, transparent), color-mix(in oklab, var(--card) 66%, transparent));
@@ -231,8 +243,9 @@ h4 {
 }
 
 .hero-title {
-  font-size: clamp(2.15rem, 5vw, 4.65rem);
-  line-height: 1;
+  /* Fluid: 1.75rem on mobile → 4.65rem on large screens */
+  font-size: clamp(1.75rem, 5vw, 4.65rem);
+  line-height: 1.05;
 }
 
 .hero-gradient-text {
@@ -242,6 +255,7 @@ h4 {
   color: transparent;
 }
 
+/* ─── Footer ────────────────────────────────────────────────── */
 .footer-shell {
   background: color-mix(in oklab, var(--glass-bg) 92%, transparent);
   border-top: 1px solid var(--border);
@@ -249,6 +263,7 @@ h4 {
   -webkit-backdrop-filter: blur(14px) saturate(130%);
 }
 
+/* ─── Cards ─────────────────────────────────────────────────── */
 .card-hover {
   transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
 }
@@ -263,22 +278,138 @@ h4 {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
 }
 
+/* ─── Messages page responsive layout ──────────────────────── */
+/*
+  Mobile  (< 640px): only one panel visible at a time.
+  Desktop (≥ 640px): sidebar 300px fixed + flex-1 chat area.
+*/
+
+/* Back button in chat header — visible only on mobile */
+.chat-mobile-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+
+@media (min-width: 640px) {
+  .chat-mobile-back {
+    display: none;
+  }
+}
+
+/* On mobile, hide the sidebar when a chat is selected */
+.messages-sidebar-mobile-hidden {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .messages-sidebar-mobile-hidden {
+    display: flex !important;
+  }
+}
+
+/* On mobile, hide the chat area when no chat is selected */
+.messages-chat-mobile-hidden {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .messages-chat-mobile-hidden {
+    display: flex !important;
+  }
+}
+
+/* Sidebar fixed width on tablet+ */
+@media (min-width: 640px) {
+  .messages-sidebar-panel {
+    width: 280px !important;
+    min-width: 260px;
+    max-width: 320px;
+    flex: 0 0 280px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .messages-sidebar-panel {
+    width: 300px !important;
+    flex: 0 0 300px !important;
+  }
+}
+
+/* ─── Small phone tweaks (≤ 480px) ─────────────────────────── */
+@media (max-width: 480px) {
+  :root {
+    --font-size: 15px;
+  }
+
+  .hero-shell {
+    border-radius: 1rem;
+    padding: 1.25rem !important;
+  }
+
+  .app-shell::before,
+  .app-shell::after {
+    width: 200px;
+    height: 200px;
+    filter: blur(50px);
+  }
+
+  .footer-shell {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+}
+
+/* ─── Landscape phone / tablet (≤ 768px) ────────────────────── */
 @media (max-width: 768px) {
   .header-adaptive {
     backdrop-filter: blur(14px) saturate(125%);
     -webkit-backdrop-filter: blur(14px) saturate(125%);
   }
 
-  .app-shell::before,
-  .app-shell::after {
-    width: 280px;
-    height: 280px;
-  }
-
   .hero-shell {
     border-radius: 1.2rem;
+  }
+
+  .app-shell::before,
+  .app-shell::after {
+    width: 260px;
+    height: 260px;
+    filter: blur(60px);
+  }
+
+  /* Hub cards — single column */
+  .hub-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─── Tablet (≥ 640px) hub 2-column ────────────────────────── */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .hub-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ─── Desktop hub 4-column (default Tailwind handles this) ─── */
+
+/* ─── Minimum touch target size ─────────────────────────────── */
+@media (pointer: coarse) {
+  button,
+  a[role="button"],
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* prevent iOS auto-zoom */
   }
 }
