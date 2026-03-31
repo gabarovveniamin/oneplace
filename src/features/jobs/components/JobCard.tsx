@@ -83,7 +83,7 @@ export function JobCard({ job, onJobClick, isFavorite, onToggleFavorite }: JobCa
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <div className="flex items-center space-x-1 bg-muted/50 px-2 py-1 rounded-md">
               <MapPin className="h-4 w-4" />
               <span>{job.location}</span>
@@ -95,7 +95,7 @@ export function JobCard({ job, onJobClick, isFavorite, onToggleFavorite }: JobCa
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between job-card-footer">
           <div className="flex flex-wrap gap-2">
             <Badge className={`${getTypeColor(job.type)} border border-border/50`}>
               {getTypeLabel(job.type)}

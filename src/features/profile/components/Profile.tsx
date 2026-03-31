@@ -713,7 +713,7 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4">
+              <div className="flex flex-wrap gap-2 pt-4">
                 {!isEditing ? (
                   <>
                     {/* Only show Message button if NOT own profile */}
@@ -904,7 +904,8 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
 
         {/* Tab Navigation */}
         <div className="px-4 sm:px-6 lg:px-8 mt-8">
-          <div className="flex overflow-x-auto border-b scrollbar-hide">
+          <div className="relative">
+          <div className="flex overflow-x-auto border-b profile-tabs-scroll">
             <button
               onClick={() => setActiveSection('info')}
               className={cn(
@@ -986,6 +987,7 @@ export function Profile({ onBack, onAdminClick, onJobClick, onCreateResume, onSh
               <ShoppingBag className="h-4 w-4" />
               Маркет
             </button>
+          </div>
           </div>
         </div>
 
